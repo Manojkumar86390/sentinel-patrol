@@ -5,7 +5,7 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 import { cn } from "@/lib/utils";
 
 interface SliderProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>, "value" | "onValueChange"> {
+  extends Omit<React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>, "value" | "onValueChange" | "onChange"> {
   value: number;
   onChange: (value: number) => void;
   min?: number;
