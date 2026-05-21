@@ -1,0 +1,262 @@
+/* ===========================================================================
+   Smart Security Patrol Monitoring System – Global Styles
+   Tailwind v4 (CSS-first). All design tokens live in this file.
+   =========================================================================== */
+
+/* Fonts MUST come before @import "tailwindcss" — CSS spec rule. */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Theme tokens – exposed to Tailwind utilities via @theme.
+   --------------------------------------------------------------------------- */
+@theme {
+  --color-bg:        #080b10;
+  --color-surface:   #0f1320;
+  --color-surface-2: #111827;
+  --color-border:    #1f2937;
+
+  --color-text:      #f3f4f6;
+  --color-muted:     #94a3b8;
+
+  --color-primary:   #2b7fff;
+  --color-accent:    #3b82f6;
+
+  --color-success:   #10d47e;
+  --color-warning:   #f59e0b;
+  --color-danger:    #ef4444;
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-card: 14px;
+}
+
+/* ---------------------------------------------------------------------------
+   shadcn-style CSS vars – kept so existing /components/ui parts work as-is.
+   --------------------------------------------------------------------------- */
+:root {
+  --background:        222 47% 4%;
+  --foreground:        210 40% 96%;
+
+  --card:              222 32% 9%;
+  --card-foreground:   210 40% 96%;
+
+  --popover:           222 32% 9%;
+  --popover-foreground:210 40% 96%;
+
+  --primary:           217 91% 58%;
+  --primary-foreground:210 40% 98%;
+
+  --secondary:         217 19% 17%;
+  --secondary-foreground: 210 40% 96%;
+
+  --muted:             217 19% 17%;
+  --muted-foreground:  215 20% 65%;
+
+  --accent:            217 19% 17%;
+  --accent-foreground: 210 40% 96%;
+
+  --destructive:       0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border:            217 19% 20%;
+  --input:             217 19% 20%;
+  --ring:              217 91% 58%;
+
+  --radius: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Base layer
+   --------------------------------------------------------------------------- */
+* {
+  border-color: hsl(var(--border));
+}
+
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(43,127,255,0.12), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(43,127,255,0.05), transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+code, pre, .mono { font-family: var(--font-mono); }
+
+/* Custom scrollbars to match the dark theme */
+::-webkit-scrollbar       { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* ---------------------------------------------------------------------------
+   Reusable animations
+   --------------------------------------------------------------------------- */
+
+/* Live-status pulse dot used on the dashboard and live-monitoring page. */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.85); opacity: 0.7; }
+  50%  { transform: scale(1.4);  opacity: 0;   }
+  100% { transform: scale(1.4);  opacity: 0;   }
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Spotlight – uses the SVG from /components/ui/spotlight */
+@keyframes spotlight {
+  0%   { opacity: 0;   transform: translate(-72%, -62%) scale(0.5); }
+  100% { opacity: 1;   transform: translate(-50%, -40%) scale(1);   }
+}
+.animate-spotlight { animation: spotlight 2s ease 0.75s 1 forwards; }
+
+/* Suspense loader used by SplineScene */
+.loader {
+  width: 38px; aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid #1f2937;
+  border-top-color: var(--color-primary);
+  animation: loader-spin 0.9s linear infinite;
+}
+@keyframes loader-spin { to { transform: rotate(1turn); } }
+
+/* LumaSpin – two squares chasing each other around a path. */
+@keyframes luma-spin-anim {
+  0%    { inset: 0 var(--lumaInset, 35px) var(--lumaInset, 35px) 0; }
+  12.5% { inset: 0 var(--lumaInset, 35px) 0 0; }
+  25%   { inset: var(--lumaInset, 35px) var(--lumaInset, 35px) 0 0; }
+  37.5% { inset: var(--lumaInset, 35px) 0 0 0; }
+  50%   { inset: var(--lumaInset, 35px) 0 0 var(--lumaInset, 35px); }
+  62.5% { inset: 0 0 0 var(--lumaInset, 35px); }
+  75%   { inset: 0 0 var(--lumaInset, 35px) var(--lumaInset, 35px); }
+  87.5% { inset: 0 0 var(--lumaInset, 35px) 0; }
+  100%  { inset: 0 var(--lumaInset, 35px) var(--lumaInset, 35px) 0; }
+}
+.luma-spin-anim   { animation: luma-spin-anim 2.5s infinite; }
+.luma-spin-delay  { animation-delay: -1.25s; }
+
+/* ---------------------------------------------------------------------------
+   CPU architecture component animations (from archtiteture.txt)
+   --------------------------------------------------------------------------- */
+.cpu-architecture {
+  offset-anchor: 10px 0px;
+  animation: animation-path;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.75, -0.01, 0, 0.99);
+}
+.cpu-line-1 { offset-path: path("M 10 20 h 79.5 q 5 0 5 5 v 30");  animation-duration: 5s; animation-delay: 1s; }
+.cpu-line-2 { offset-path: path("M 180 10 h -69.7 q -5 0 -5 5 v 40"); animation-duration: 2s; animation-delay: 6s; }
+.cpu-line-3 { offset-path: path("M 130 20 v 21.8 q 0 5 -5 5 h -25"); animation-duration: 6s; animation-delay: 4s; }
+.cpu-line-4 { offset-path: path("M 170 80 v -21.8 q 0 -5 -5 -5 h -65"); animation-duration: 3s; animation-delay: 3s; }
+.cpu-line-5 { offset-path: path("M 135 65 h 15 q 5 0 5 5 v 10 q 0 5 -5 5 h -39.8 q -5 0 -5 -5 v -35"); animation-duration: 4s; animation-delay: 9s; }
+.cpu-line-6 { offset-path: path("M 94.8 95 v -46"); animation-duration: 7s; animation-delay: 3s; }
+.cpu-line-7 { offset-path: path("M 88 88 v -15 q 0 -5 -5 -5 h -10 q -5 0 -5 -5 v -5 q 0 -5 5 -5 h 28"); animation-duration: 4s; animation-delay: 4s; }
+.cpu-line-8 { offset-path: path("M 30 30 h 25 q 5 0 5 5 v 6.5 q 0 5 5 5 h 35"); animation-duration: 3s; animation-delay: 3s; }
+
+@keyframes animation-path {
+  0%   { offset-distance: 0%;   }
+  100% { offset-distance: 100%; }
+}
+
+/* ---------------------------------------------------------------------------
+   Small utility classes used across pages
+   --------------------------------------------------------------------------- */
+.glass {
+  background: rgba(15, 19, 32, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ---------------------------------------------------------------------------
+   MapLibre overrides — keep popups on-brand and style the custom pin element.
+   --------------------------------------------------------------------------- */
+.maplibregl-popup-content {
+  background: var(--color-surface) !important;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px !important;
+  box-shadow: 0 12px 32px -12px rgba(0,0,0,0.6) !important;
+  padding: 0 !important;
+}
+.maplibregl-popup-tip { border-top-color: var(--color-surface) !important; }
+.maplibregl-ctrl-attrib { background: rgba(0,0,0,0.4) !important; }
+.maplibregl-ctrl-attrib a { color: rgba(255,255,255,0.5) !important; }
+
+.sentinel-pin {
+  position: relative; width: 22px; height: 22px; cursor: pointer;
+}
+.sentinel-pin__core {
+  position: absolute; inset: 6px; border-radius: 9999px;
+  box-shadow: 0 0 12px -2px currentColor;
+}
+.sentinel-pin__ring {
+  position: absolute; inset: 0; border-radius: 9999px; opacity: 0.4;
+  animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Leaflet — dark popup styling for the campus live map.
+   --------------------------------------------------------------------------- */
+.sentinel-marker { background: transparent; border: 0; }
+
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 19, 32, 0.95) !important;
+  color: #e5e7eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.6);
+}
+.leaflet-popup-tip {
+  background: rgba(15, 19, 32, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.leaflet-popup-content {
+  margin: 10px 14px !important;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+.leaflet-popup-close-button {
+  color: #9ca3af !important;
+  padding: 8px !important;
+}
+.leaflet-popup-close-button:hover { color: white !important; }
+.leaflet-control-attribution {
+  background: rgba(15, 19, 32, 0.7) !important;
+  color: #888 !important;
+  font-size: 10px !important;
+  padding: 2px 6px !important;
+  backdrop-filter: blur(4px);
+}
+.leaflet-bar {
+  background: rgba(15, 19, 32, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+}
+.leaflet-bar a {
+  background: transparent !important;
+  color: #e5e7eb !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.leaflet-bar a:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
