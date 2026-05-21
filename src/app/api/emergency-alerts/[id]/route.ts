@@ -32,7 +32,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
       ...all[idx],
       acknowledged: true,
       acknowledgedAt: new Date().toISOString(),
-      acknowledgedBy: user.name ?? "admin",
+      acknowledgedBy: user ?? "admin",
     };
   }
 
