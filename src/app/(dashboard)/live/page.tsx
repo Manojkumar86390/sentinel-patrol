@@ -8,7 +8,7 @@ import { Badge, PulseDot } from "@/components/ui/badge";
 import { useLive } from "@/hooks/use-live";
 import { timeAgo, cn } from "@/lib/utils";
 import { FiCpu, FiRadio, FiClock, FiActivity, FiMapPin } from "react-icons/fi";
-import type { PatrolEvent, EspScanner } from "@/types";
+import type { PatrolEvent, EspScanner, GuardPosition } from "@/types";
 
 // Leaflet must be loaded client-only (uses window).
 const LiveMap = dynamic(
@@ -28,9 +28,14 @@ export default function LivePage() {
     { select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 5000 });
   const { data: events }   = useLive<PatrolEvent[]>("/api/patrol-events?limit=100",
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 3000 });
+  // Live-computed guard positions for the moving map markers. Poll fast (every
+  // 2s) since this powers the smooth animation; CSS handles in-between motion.
+  const { data: guardPositions } = useLive<GuardPosition[]>("/api/guard-positions",
+    { select: (r) => (r as { items: GuardPosition[] }).items, intervalMs: 2000 });
 
   const ss = scanners ?? [];
   const es = events ?? [];
+  const gp = guardPositions ?? [];
   const onlineCount = ss.filter((s) => s.status === "online").length;
 
   // re-render every 5s so timeAgo() refreshes
@@ -72,11 +77,15 @@ export default function LivePage() {
                 <span className="h-2 w-2 rounded-full bg-gray-500" />
                 Unmapped
               </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_6px_#facc15]" />
+                Guard (live)
+              </span>
             </div>
           </div>
 
           <div className="p-4">
-            <LiveMap scanners={ss} events={es} height={460} />
+            <LiveMap scanners={ss} events={es} guardPositions={gp} height={460} />
             <p className="mt-3 text-[10px] text-[var(--color-muted)]">
               💡 Each marker links to a registered scanner by matching its <strong>location</strong> field.
               To map a scanner to a pin, register it under <span className="text-white">Devices → ESP32 Scanners</span> with
@@ -84,6 +93,11 @@ export default function LivePage() {
               <code className="mono text-[var(--color-primary)]">ECE Block</code>,{" "}
               <code className="mono text-[var(--color-primary)]">Sports</code>,{" "}
               <code className="mono text-[var(--color-primary)]">MVHR Hostel</code>.
+            </p>
+            <p className="mt-2 text-[10px] text-[var(--color-muted)]">
+              🟡 <strong>Live guard tracking</strong> — yellow markers show guards detected by 1+ scanners in the last 30s.
+              Position is computed from BLE signal strength (RSSI) using weighted interpolation between scanners.
+              Click a guard marker to see the RSSI sample data used. Accuracy improves with more scanners deployed.
             </p>
           </div>
         </Card>

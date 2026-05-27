@@ -5,11 +5,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { CAMPUS_CENTER, CAMPUS_LOCATIONS, type CampusLocation } from "@/lib/campus-locations";
 import { timeAgo } from "@/lib/utils";
-import type { EspScanner, PatrolEvent } from "@/types";
+import type { EspScanner, GuardPosition, PatrolEvent } from "@/types";
 
 interface Props {
   scanners: EspScanner[];
   events:   PatrolEvent[];
+  guardPositions?: GuardPosition[];   // NEW: live-computed guard positions
   height?:  number;
 }
 
@@ -48,6 +49,34 @@ function resolveMarkers(
  * (online), red solid (offline), grey hollow (unmapped). Inline so it works
  * without external assets.
  */
+/**
+ * Build a Leaflet icon for an animated GUARD marker. Yellow/amber pulsing dot
+ * with a small label below showing the BLE name or guard name. Distinct from
+ * the green/red checkpoint pins so the eye separates them at a glance.
+ */
+function buildGuardIcon(label: string): L.DivIcon {
+  const svg = `
+    <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+      <g>
+        <!-- outer pulse ring -->
+        <circle cx="18" cy="14" r="12" fill="#facc15" opacity="0.3">
+          <animate attributeName="r" from="8" to="18" dur="1.4s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" from="0.65" to="0" dur="1.4s" repeatCount="indefinite"/>
+        </circle>
+        <!-- solid amber dot, white ring -->
+        <circle cx="18" cy="14" r="8"  fill="#facc15" stroke="white" stroke-width="2"/>
+        <circle cx="18" cy="14" r="3"  fill="#0a0d18"/>
+      </g>
+    </svg>`;
+  return L.divIcon({
+    html: `${svg}<div class="sentinel-guard-label">${label}</div>`,
+    className: "sentinel-guard",
+    iconSize:   [36, 44],
+    iconAnchor: [18, 14],
+    popupAnchor: [0, -8],
+  });
+}
+
 function buildIcon(state: MarkerState): L.DivIcon {
   const palette = {
     online:   { fill: "#22c55e", ring: "#22c55e" },
@@ -80,10 +109,14 @@ function buildIcon(state: MarkerState): L.DivIcon {
   });
 }
 
-export function LiveMap({ scanners, events, height = 420 }: Props) {
+export function LiveMap({ scanners, events, guardPositions = [], height = 420 }: Props) {
   const mapRef        = useRef<HTMLDivElement | null>(null);
   const leafletRef    = useRef<L.Map | null>(null);
   const markersRef    = useRef<L.Marker[]>([]);
+  // Persistent guard markers keyed by MAC. We KEEP these between renders so
+  // they animate smoothly to their new (lat, lng) instead of being recreated.
+  const guardMarkersRef  = useRef<Map<string, L.Marker>>(new Map());
+  const accuracyRingsRef = useRef<Map<string, L.Circle>>(new Map());
 
   const markers = useMemo(() => resolveMarkers(scanners, events), [scanners, events]);
 
@@ -171,6 +204,89 @@ export function LiveMap({ scanners, events, height = 420 }: Props) {
       markersRef.current.push(marker);
     }
   }, [markers]);
+
+  // Sync GUARD markers. Persistent (not wiped each render) so they animate
+  // smoothly using setLatLng() instead of being removed and re-added.
+  useEffect(() => {
+    const map = leafletRef.current;
+    if (!map) return;
+
+    const seen = new Set<string>();
+
+    for (const g of guardPositions) {
+      seen.add(g.mac);
+      const label = escape(g.guardName ?? g.name);
+
+      let marker = guardMarkersRef.current.get(g.mac);
+      let ring   = accuracyRingsRef.current.get(g.mac);
+
+      if (!marker) {
+        marker = L.marker([g.lat, g.lng], {
+          icon: buildGuardIcon(label),
+          zIndexOffset: 1000,
+        });
+        marker.addTo(map);
+        guardMarkersRef.current.set(g.mac, marker);
+      } else {
+        // Smoothly move to the new position. Leaflet will redraw, and our
+        // CSS transition on .sentinel-guard takes care of the visual easing.
+        marker.setLatLng([g.lat, g.lng]);
+        marker.setIcon(buildGuardIcon(label));
+      }
+
+      // Accuracy ring (semi-transparent circle showing estimated error radius)
+      if (!ring) {
+        ring = L.circle([g.lat, g.lng], {
+          radius: g.accuracyMeters,
+          color: "#facc15",
+          fillColor: "#facc15",
+          fillOpacity: 0.08,
+          weight: 1,
+          opacity: 0.4,
+          interactive: false,
+        }).addTo(map);
+        accuracyRingsRef.current.set(g.mac, ring);
+      } else {
+        ring.setLatLng([g.lat, g.lng]);
+        ring.setRadius(g.accuracyMeters);
+      }
+
+      // Popup with diagnostic info
+      const sampleHtml = g.sample
+        .map((s) => `<li style="font-family:ui-monospace,monospace;font-size:10px;color:#aaa">
+            ${escape(s.location)} (${escape(s.espId)}) · ${s.rssi} dBm · ${s.ageSeconds}s ago
+          </li>`)
+        .join("");
+      const html = `
+        <div style="min-width:220px;color:#e5e7eb;font-family:Inter,system-ui,sans-serif">
+          <div style="font-weight:600;color:white;font-size:13px;margin-bottom:2px">
+            ${escape(g.guardName ?? g.name)}
+          </div>
+          <div style="font-family:ui-monospace,monospace;font-size:10px;color:#aaa;margin-bottom:6px">${escape(g.mac)}</div>
+          <div style="font-size:11px;color:#facc15;margin-bottom:6px">
+            ~${g.accuracyMeters}m accuracy · ${g.source === "interpolated" ? "interpolated" : "snap-to-scanner"}
+          </div>
+          <ul style="list-style:none;padding:0;margin:0;border-top:1px solid #333;padding-top:6px">
+            ${sampleHtml}
+          </ul>
+        </div>`;
+      marker.bindPopup(html, { className: "sentinel-popup" });
+    }
+
+    // Drop markers for guards that disappeared.
+    for (const [mac, marker] of guardMarkersRef.current) {
+      if (!seen.has(mac)) {
+        marker.remove();
+        guardMarkersRef.current.delete(mac);
+      }
+    }
+    for (const [mac, ring] of accuracyRingsRef.current) {
+      if (!seen.has(mac)) {
+        ring.remove();
+        accuracyRingsRef.current.delete(mac);
+      }
+    }
+  }, [guardPositions]);
 
   return (
     <div

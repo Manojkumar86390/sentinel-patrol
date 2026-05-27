@@ -64,6 +64,7 @@ type DbPatrolEvent = {
   received_at:   string;
   status:        string;
   guard_name:    string | null;
+  rssi:          number | null;
 };
 
 function eventFromDb(r: DbPatrolEvent): PatrolEvent {
@@ -78,6 +79,7 @@ function eventFromDb(r: DbPatrolEvent): PatrolEvent {
     receivedAt:   r.received_at,
     status:       r.status as EventStatus,
     guardName:    r.guard_name ?? undefined,
+    rssi:         r.rssi ?? undefined,
   };
 }
 
@@ -93,6 +95,7 @@ function eventToDb(e: PatrolEvent): DbPatrolEvent {
     received_at:   e.receivedAt,
     status:        e.status,
     guard_name:    e.guardName ?? null,
+    rssi:          e.rssi ?? null,
   };
 }
 

@@ -260,3 +260,36 @@ code, pre, .mono { font-family: var(--font-mono); }
 .leaflet-bar a:hover {
   background: rgba(255, 255, 255, 0.05) !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Guard live-tracking markers (Live Status map).
+   These animate smoothly from one (lat, lng) to the next when Leaflet calls
+   setLatLng() — the transition is on `transform`, which Leaflet uses for
+   marker positioning.
+   --------------------------------------------------------------------------- */
+.sentinel-guard {
+  background: transparent;
+  border: 0;
+  transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform;
+}
+.sentinel-guard-label {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(250, 204, 21, 0.95);
+  color: #0a0d18;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font: 600 9px/1.2 "Space Grotesk", system-ui, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+/* Leaflet applies its own transform to the marker pane; make sure ours
+   inherits the smoothing. */
+.leaflet-marker-pane > .leaflet-marker-icon.sentinel-guard {
+  transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}

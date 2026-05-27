@@ -30,6 +30,29 @@ export interface PatrolEvent {
   time: string;           // "HH:MM:SS"
   status: EventStatus;
   receivedAt: string;     // ISO timestamp the server recorded the event
+  rssi?: number;          // dBm value from BLE scan (negative number). Absent for NO_DEVICE.
+}
+
+/**
+ * Live-computed guard position for the campus map.
+ * Not persisted — recomputed on every /api/guard-positions request from
+ * recent patrol events.
+ */
+export interface GuardPosition {
+  mac: string;             // BLE MAC address (the "key")
+  name: string;            // "HC-05" or friendly guard name
+  guardName?: string;
+  lat: number;             // estimated latitude
+  lng: number;             // estimated longitude
+  accuracyMeters: number;  // ~estimated horizontal error radius
+  computedAt: string;      // ISO timestamp
+  source: "snap" | "interpolated";  // method used
+  sample: Array<{          // raw inputs used (for transparency)
+    espId: string;
+    rssi: number;
+    location: string;
+    ageSeconds: number;
+  }>;
 }
 
 /**

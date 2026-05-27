@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { name?: string; bluetoothMac?: string; espId?: string };
+  let body: { name?: string; bluetoothMac?: string; espId?: string; rssi?: number };
   try {
     body = await req.json();
   } catch {
@@ -76,6 +76,12 @@ export async function POST(req: Request) {
   const rawName = (body.name ?? "").trim() || "NO_DEVICE";
   const macLow  = (body.bluetoothMac ?? "").trim().toLowerCase() || "n/a";
   const espId   = (body.espId ?? "ESP32-UNKNOWN").trim();
+  // RSSI is a signed integer in dBm. Negative for real readings; 0 = unknown.
+  // We only store it when present and non-zero (preserves backward compat with
+  // older firmware versions that don't send it at all).
+  const rssi    = typeof body.rssi === "number" && body.rssi !== 0
+                    ? Math.round(body.rssi)
+                    : undefined;
 
   // 1) Resolve scanner → location + heartbeat
   const scanners = await db.scanners.all();
@@ -119,6 +125,7 @@ export async function POST(req: Request) {
     time: now.toTimeString().slice(0, 8),
     status,
     receivedAt: now.toISOString(),
+    rssi,
   };
 
   await db.events.push(event);

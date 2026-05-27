@@ -38,16 +38,16 @@
 #include <BLEAdvertisedDevice.h>
 
 // ─── CONFIGURE THESE ────────────────────────────────────────────────────────
-const char* WIFI_SSID  = "DMK";
-const char* WIFI_PASS  = "88888888";
+const char* WIFI_SSID  = "dmk";
+const char* WIFI_PASS  = "00000000";
 
-const char* SERVER_HOST  = "172.16.104.15";   // your laptop's LAN IP
+const char* SERVER_HOST  = "10.185.189.235";   // your laptop's LAN IP
 const int   SERVER_PORT  = 3002;
 const char* PATROL_PATH  = "/api/patrol-events";
 const char* ALERT_PATH   = "/api/emergency-alerts";
 
 const char* DEVICE_TOKEN = "";                // optional, must match .env.local
-const char* ESP_ID       = "SCANNER-01";
+const char* ESP_ID       = "ESP32-SCANNER-01";
 
 // BLE
 const char* TAG_NAMES[] = { "HC-05", "GUARD_TAG_01" };
