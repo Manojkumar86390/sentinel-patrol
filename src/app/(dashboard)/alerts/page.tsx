@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,11 @@ import { timeAgo, cn } from "@/lib/utils";
 import {
   FiAlertTriangle, FiZap, FiActivity, FiUsers,
   FiCheck, FiMapPin, FiCpu, FiClock, FiTrash2,
+  FiVolume2, FiVolumeX,
 } from "react-icons/fi";
 import type { AlertType, EmergencyAlert } from "@/types";
 
-// Visual treatment per alert type. Bleeding & accident are red, fire is orange,
-// fight is amber. All use icons that read at a glance.
+// Visual treatment per alert type.
 const TYPE_STYLE: Record<AlertType, { color: string; bg: string; ring: string; icon: React.ComponentType<{ className?: string }>; label: string; }> = {
   accident: { color: "text-red-400",    bg: "bg-red-500/10",    ring: "ring-red-500/30",    icon: FiAlertTriangle, label: "Accident" },
   fire:     { color: "text-orange-400", bg: "bg-orange-500/10", ring: "ring-orange-500/30", icon: FiZap,           label: "Fire" },
@@ -22,11 +22,91 @@ const TYPE_STYLE: Record<AlertType, { color: string; bg: string; ring: string; i
   fight:    { color: "text-amber-400",  bg: "bg-amber-500/10",  ring: "ring-amber-500/30",  icon: FiUsers,         label: "Fight" },
 };
 
+/**
+ * Play a sharp three-pulse alarm using Web Audio API. No external sound file
+ * required — synthesized in-browser, so it works offline and on Vercel without
+ * shipping an audio asset. Returns silently if the browser blocks audio (e.g.
+ * before any user interaction on the page).
+ */
+function playAlarmBeep() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+
+    // Three quick pulses at 880 Hz (high enough to feel urgent, not painful)
+    for (let i = 0; i < 3; i++) {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "square";              // square wave = sharper, alarm-like
+      osc.frequency.value = 880;
+
+      const start = ctx.currentTime + i * 0.18;
+      const stop  = start + 0.10;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.18, start + 0.01);
+      gain.gain.linearRampToValueAtTime(0,    stop);
+      osc.start(start);
+      osc.stop(stop + 0.02);
+    }
+
+    // Close the context shortly after the last pulse to free resources
+    setTimeout(() => { ctx.close().catch(() => {}); }, 700);
+  } catch {
+    /* Audio not available — silently ignore */
+  }
+}
+
 export default function AlertsPage() {
   const { data: alerts, refresh } = useLive<EmergencyAlert[]>("/api/emergency-alerts",
     { select: (r) => (r as { items: EmergencyAlert[] }).items, intervalMs: 3000 });
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [muted,  setMuted]  = useState(false);
+  // IDs of alerts that are still in the "just arrived" flash window (1.4s).
+  const [justArrived, setJustArrived] = useState<Set<string>>(new Set());
+  // IDs we've already seen — so the very first render doesn't beep for every
+  // existing alert on the page.
+  const seenIdsRef = useRef<Set<string> | null>(null);
+
+  // Detect newly arrived UNACKNOWLEDGED alerts and trigger sound + flash.
+  // This runs on every alerts list change.
+  useEffect(() => {
+    if (!alerts) return;
+    const currentIds = new Set(alerts.map((a) => a.id));
+
+    // First load — record what we already had, don't beep.
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = currentIds;
+      return;
+    }
+
+    // Find IDs that are new AND not yet acknowledged.
+    const newOnes = alerts.filter(
+      (a) => !seenIdsRef.current!.has(a.id) && !a.acknowledged
+    );
+
+    if (newOnes.length > 0) {
+      if (!muted) playAlarmBeep();
+      setJustArrived((prev) => {
+        const next = new Set(prev);
+        newOnes.forEach((a) => next.add(a.id));
+        return next;
+      });
+      // Clear the flash after the CSS animation finishes (1.4s × 3 = 4.2s).
+      setTimeout(() => {
+        setJustArrived((prev) => {
+          const next = new Set(prev);
+          newOnes.forEach((a) => next.delete(a.id));
+          return next;
+        });
+      }, 4500);
+    }
+
+    seenIdsRef.current = currentIds;
+  }, [alerts, muted]);
 
   const all = alerts ?? [];
   const active   = useMemo(() => all.filter((a) =>  !a.acknowledged), [all]);
@@ -70,9 +150,27 @@ export default function AlertsPage() {
                 Active alerts {active.length > 0 && <span className="text-[var(--color-danger)]">({active.length})</span>}
               </h2>
             </div>
-            {active.length === 0 && handled.length > 0 && (
-              <Badge variant="success">All clear</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Sound mute toggle. State only — defaults to unmuted so the first
+                  demo alarm is heard. Clicking flips it. */}
+              <button
+                type="button"
+                onClick={() => setMuted((m) => !m)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors",
+                  muted
+                    ? "border-white/10 text-[var(--color-muted)] hover:text-white hover:bg-white/[0.04]"
+                    : "border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                )}
+                title={muted ? "Sound is OFF — click to enable" : "Sound is ON — click to mute"}
+              >
+                {muted ? <FiVolumeX className="h-3.5 w-3.5" /> : <FiVolume2 className="h-3.5 w-3.5" />}
+                {muted ? "Sound off" : "Sound on"}
+              </button>
+              {active.length === 0 && handled.length > 0 && (
+                <Badge variant="success">All clear</Badge>
+              )}
+            </div>
           </div>
 
           {active.length === 0 ? (
@@ -90,6 +188,7 @@ export default function AlertsPage() {
                   key={a.id}
                   alert={a}
                   busy={busyId === a.id}
+                  isNew={justArrived.has(a.id)}
                   onAck={() => acknowledge(a.id)}
                 />
               ))}
@@ -128,13 +227,13 @@ export default function AlertsPage() {
 // Active alert card — big, attention-grabbing, with Acknowledge button.
 // ---------------------------------------------------------------------------
 function ActiveAlertCard({
-  alert, busy, onAck,
-}: { alert: EmergencyAlert; busy: boolean; onAck: () => void }) {
+  alert, busy, isNew, onAck,
+}: { alert: EmergencyAlert; busy: boolean; isNew?: boolean; onAck: () => void }) {
   const style = TYPE_STYLE[alert.type];
   const Icon  = style.icon;
 
   return (
-    <Card className={cn("relative overflow-hidden ring-1", style.ring)}>
+    <Card className={cn("relative overflow-hidden ring-1", style.ring, isNew && "alert-just-arrived")}>
       {/* Glow */}
       <div
         aria-hidden

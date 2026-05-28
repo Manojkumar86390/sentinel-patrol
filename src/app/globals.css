@@ -293,3 +293,104 @@ code, pre, .mono { font-family: var(--font-mono); }
 .leaflet-marker-pane > .leaflet-marker-icon.sentinel-guard {
   transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Light theme override — applied via [data-theme="light"] on the landing page
+   wrapper. Only the landing page reads this; dashboard stays in dark mode for
+   the security-console feel.
+   --------------------------------------------------------------------------- */
+[data-theme="light"] {
+  --color-bg:        #f5f7fb;
+  --color-surface:   #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-border:    #e2e8f0;
+
+  --color-text:      #0f172a;
+  --color-muted:     #475569;
+
+  --color-primary:   #2563eb;
+  --color-accent:    #1d4ed8;
+
+  --color-success:   #059669;
+  --color-warning:   #d97706;
+  --color-danger:    #dc2626;
+}
+[data-theme="light"] body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+/* Sections in the landing page use rgba whites — flip them in light mode */
+[data-theme="light"] .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.06\] {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+[data-theme="light"] .border-white\/\[0\.04\],
+[data-theme="light"] .border-white\/\[0\.06\],
+[data-theme="light"] .border-white\/\[0\.08\],
+[data-theme="light"] .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+[data-theme="light"] .text-white         { color: var(--color-text) !important; }
+[data-theme="light"] .text-neutral-500   { color: var(--color-muted) !important; }
+[data-theme="light"] .bg-black,
+[data-theme="light"] .bg-black\/40,
+[data-theme="light"] .bg-black\/60       { background-color: var(--color-surface) !important; }
+
+/* ---------------------------------------------------------------------------
+   Animated radar sweep — used as a decorative background on the landing page.
+   --------------------------------------------------------------------------- */
+@keyframes radar-sweep {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes radar-ping {
+  0%   { transform: scale(0.2); opacity: 0.6; }
+  100% { transform: scale(1.0); opacity: 0;   }
+}
+.radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg,
+    transparent 0deg,
+    transparent 280deg,
+    rgba(43, 127, 255, 0.20) 320deg,
+    rgba(43, 127, 255, 0.45) 355deg,
+    rgba(43, 127, 255, 0.65) 360deg,
+    transparent 360deg);
+  animation: radar-sweep 6s linear infinite;
+  transform-origin: center;
+}
+.radar-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(43, 127, 255, 0.30);
+  animation: radar-ping 3s ease-out infinite;
+}
+.radar-ping.delay-1 { animation-delay: 1s; }
+.radar-ping.delay-2 { animation-delay: 2s; }
+
+/* ---------------------------------------------------------------------------
+   Dashboard page transition — gentle fade-up when each route renders.
+   --------------------------------------------------------------------------- */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-fade-in {
+  animation: page-fade-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Emergency alert flash — red pulse + scale on newly arrived alert cards.
+   --------------------------------------------------------------------------- */
+@keyframes alert-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  20%      { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.45); }
+  50%      { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+}
+.alert-just-arrived {
+  animation: alert-flash 1.4s ease-out 3;
+}

@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import { SplineScene } from "@/components/ui/splite";
-import { FiShield, FiArrowRight, FiRadio, FiAlertOctagon, FiMapPin } from "react-icons/fi";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { FiShield, FiArrowRight, FiRadio, FiAlertOctagon, FiMapPin, FiPlayCircle } from "react-icons/fi";
 
 export function HeroSection() {
   return (
     <section className="relative w-full min-h-screen bg-black overflow-hidden">
+      {/* Floating top-right utility cluster: theme toggle.
+          Fixed within the hero so it doesn't jump around as the page scrolls. */}
+      <div className="absolute top-6 right-6 z-30 flex items-center gap-2">
+        <ThemeToggle />
+      </div>
+
       {/* Background atmospheric glow on the left */}
       <div
         aria-hidden
@@ -16,6 +23,51 @@ export function HeroSection() {
             "radial-gradient(ellipse 60% 70% at 30% 50%, rgba(43,127,255,0.18), transparent 60%)",
         }}
       />
+
+      {/* Decorative animated radar sweep on the right side of the hero.
+          Positioned absolute, well behind the text, and behind any other
+          floating elements. Pointer-events-none so it never blocks clicks.
+          A few static "ping" rings provide depth around the rotating sweep. */}
+      <div
+        aria-hidden
+        className="absolute pointer-events-none hidden lg:block"
+        style={{
+          top: "20%",
+          right: "-100px",
+          width: "560px",
+          height: "560px",
+          opacity: 0.35,
+        }}
+      >
+        {/* Static concentric rings */}
+        <div className="absolute inset-0 rounded-full border border-[var(--color-primary)]/20" />
+        <div className="absolute rounded-full border border-[var(--color-primary)]/15"
+             style={{ inset: "12%" }} />
+        <div className="absolute rounded-full border border-[var(--color-primary)]/10"
+             style={{ inset: "24%" }} />
+        <div className="absolute rounded-full border border-[var(--color-primary)]/10"
+             style={{ inset: "36%" }} />
+
+        {/* Cross-hair lines through the center */}
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-[var(--color-primary)]/10" />
+        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-[var(--color-primary)]/10" />
+
+        {/* Rotating sweep wedge (the radar arm) */}
+        <div className="radar-sweep" />
+
+        {/* Outward pinging rings — appear at random checkpoints */}
+        <div className="radar-ping" />
+        <div className="radar-ping delay-1" />
+        <div className="radar-ping delay-2" />
+
+        {/* A few static "detected" dots scattered around */}
+        <div className="absolute h-2 w-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_var(--color-success)]"
+             style={{ top: "30%", left: "55%" }} />
+        <div className="absolute h-2 w-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_var(--color-success)]"
+             style={{ top: "65%", left: "40%" }} />
+        <div className="absolute h-1.5 w-1.5 rounded-full bg-yellow-400 shadow-[0_0_6px_#facc15]"
+             style={{ top: "45%", left: "70%" }} />
+      </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-10 pt-28 pb-16">
         <div className="flex flex-col lg:flex-row items-center gap-8">
@@ -54,6 +106,13 @@ export function HeroSection() {
                 <FiShield className="h-4 w-4" />
                 Access Dashboard
                 <FiArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/live?demo=1"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-[var(--color-primary)]/40 text-[var(--color-primary)] text-sm font-semibold hover:bg-[var(--color-primary)]/10 transition-colors"
+              >
+                <FiPlayCircle className="h-4 w-4" />
+                See Demo
               </Link>
               <a
                 href="#features"
