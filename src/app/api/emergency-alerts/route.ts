@@ -55,6 +55,20 @@ export async function GET(req: Request) {
 }
 
 // ---------- POST (ESP32 -> server) -----------------------------------------
+//
+// Payload variants we accept:
+//
+//   Emergency Switch product (preferred, new):
+//     { type: "fire"|"accident"|"bleeding"|"fight", switchId: "ESP32-SWITCH-01" }
+//     -> creates an alert, location resolved from emergency_switches table
+//
+//   Heartbeat (every 30s from Emergency Switch firmware):
+//     { type: "heartbeat", switchId: "ESP32-SWITCH-01" }
+//     -> updates last_heartbeat in emergency_switches; NO alert created
+//
+//   Scanner product (legacy, combined hardware):
+//     { type: "fire"|..., espId: "ESP32-SCANNER-01" }
+//     -> creates an alert, location resolved from esp32_scanners table
 
 export async function POST(req: Request) {
   // Optional shared secret check — same DEVICE_TOKEN used by patrol-events.
@@ -63,33 +77,62 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { type?: string; espId?: string };
+  let body: { type?: string; espId?: string; switchId?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const type  = String(body.type ?? "").toLowerCase() as AlertType;
-  const espId = String(body.espId ?? "ESP32-UNKNOWN").trim();
+  const rawType  = String(body.type ?? "").toLowerCase();
+  const espId    = (body.espId    ?? "").trim() || undefined;
+  const switchId = (body.switchId ?? "").trim() || undefined;
 
-  if (!VALID_TYPES.has(type)) {
+  if (!espId && !switchId) {
     return NextResponse.json(
-      { ok: false, error: `type must be one of: ${[...VALID_TYPES].join(", ")}` },
+      { ok: false, error: "Either espId or switchId must be provided" },
       { status: 400 }
     );
   }
 
-  // Resolve scanner location
-  const scanners = await db.scanners.all();
-  const scanner  = scanners.find((s) => s.esp_id === espId);
-  const location = scanner?.location ?? "Unknown";
+  // ─── HEARTBEAT path ─────────────────────────────────────────────────────
+  // The Emergency Switch firmware pings every 30s with type="heartbeat" so
+  // the dashboard can show it as online/offline. We just bump the timestamp
+  // and bail — no alert is created.
+  if (rawType === "heartbeat") {
+    if (switchId) await db.switches.touchHeartbeat(switchId);
+    return NextResponse.json({ ok: true, heartbeat: true });
+  }
+
+  // ─── ALERT path ─────────────────────────────────────────────────────────
+  const type = rawType as AlertType;
+  if (!VALID_TYPES.has(type)) {
+    return NextResponse.json(
+      { ok: false, error: `type must be one of: ${[...VALID_TYPES].join(", ")} (or "heartbeat")` },
+      { status: 400 }
+    );
+  }
+
+  // Resolve location: prefer switch (new product), fall back to scanner.
+  let location = "Unknown";
+  if (switchId) {
+    const switches = await db.switches.all();
+    const sw = switches.find((s) => s.switch_id === switchId);
+    if (sw) location = sw.location;
+    // Always touch the heartbeat too — pressing a button counts as "alive".
+    await db.switches.touchHeartbeat(switchId);
+  } else if (espId) {
+    const scanners = await db.scanners.all();
+    const scanner  = scanners.find((s) => s.esp_id === espId);
+    if (scanner) location = scanner.location;
+  }
 
   const now = new Date();
   const alert: EmergencyAlert = {
     id: `${now.getTime()}-${Math.random().toString(36).slice(2, 9)}`,
     type,
     espId,
+    switchId,
     location,
     date: now.toISOString().slice(0, 10),
     time: now.toTimeString().slice(0, 8),
@@ -98,13 +141,16 @@ export async function POST(req: Request) {
     notified: false,
   };
 
-  // Build a rich Telegram message (HTML formatting). Server-side strings, but
-  // escape defensively in case location/espId ever come from user input.
+  // Telegram message — source line shows whichever ID we have.
+  const sourceLine = switchId
+    ? `📟 <b>Switch:</b> <code>${escapeHtml(switchId)}</code>`
+    : `📟 <b>Scanner:</b> <code>${escapeHtml(espId ?? "Unknown")}</code>`;
+
   const tgMessage =
     `${TYPE_EMOJI[type]} <b>${TYPE_LABEL[type]} ALERT</b>\n` +
     `\n` +
     `📍 <b>Location:</b> ${escapeHtml(location)}\n` +
-    `📟 <b>Scanner:</b> <code>${escapeHtml(espId)}</code>\n` +
+    `${sourceLine}\n` +
     `🕒 <b>Time:</b> <code>${now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</code>\n` +
     `\n` +
     `<i>Acknowledge in the dashboard once handled.</i>`;

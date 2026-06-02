@@ -21,6 +21,7 @@ import type {
   PatrolEvent,
   BleDevice,
   EspScanner,
+  EmergencySwitch,
   AppConfig,
   EmergencyAlert,
   EventStatus,
@@ -166,11 +167,50 @@ function scannerToDb(s: EspScanner): DbScanner {
   };
 }
 
+// ─── EmergencySwitch ─────────────────────────────────────────────────────
+// Same shape as scanners (id + heartbeat + location + status), just stored
+// in its own table and tracked separately. A switch is the panic-button
+// product; a scanner is the BLE-detection product.
+type DbSwitch = {
+  id:             string;
+  switch_id:      string;
+  location:       string;
+  description:    string | null;
+  status:         string;
+  last_heartbeat: string;
+  created_at:     string;
+};
+
+function switchFromDb(r: DbSwitch): EmergencySwitch {
+  return {
+    id:             r.id,
+    switch_id:      r.switch_id,
+    location:       r.location,
+    description:    r.description ?? undefined,
+    status:         r.status as DeviceStatus,
+    last_heartbeat: r.last_heartbeat,
+    created_at:     r.created_at,
+  };
+}
+
+function switchToDb(s: EmergencySwitch): DbSwitch {
+  return {
+    id:             s.id,
+    switch_id:      s.switch_id,
+    location:       s.location,
+    description:    s.description ?? null,
+    status:         s.status,
+    last_heartbeat: s.last_heartbeat,
+    created_at:     s.created_at,
+  };
+}
+
 // ─── EmergencyAlert ──────────────────────────────────────────────────────
 type DbAlert = {
   id:                string;
   type:              string;
-  esp_id:            string;
+  esp_id:            string | null;
+  switch_id:         string | null;
   location:          string;
   date:              string;
   time:              string;
@@ -188,7 +228,8 @@ function alertFromDb(r: DbAlert): EmergencyAlert {
   return {
     id:               r.id,
     type:             r.type as AlertType,
-    espId:            r.esp_id,
+    espId:            r.esp_id ?? undefined,
+    switchId:         r.switch_id ?? undefined,
     location:         r.location,
     date:             r.date,
     time:             r.time,
@@ -207,7 +248,8 @@ function alertToDb(a: EmergencyAlert): DbAlert {
   return {
     id:                a.id,
     type:              a.type,
-    esp_id:            a.espId,
+    esp_id:            a.espId ?? null,
+    switch_id:         a.switchId ?? null,
     location:          a.location,
     date:              a.date,
     time:              a.time,
@@ -302,6 +344,39 @@ export const db = {
     },
     save: async (rows: EspScanner[]): Promise<void> => {
       await replaceAll("esp32_scanners", rows.map(scannerToDb));
+    },
+  },
+
+  switches: {
+    all: async (): Promise<EmergencySwitch[]> => {
+      const { data, error } = await client()
+        .from("emergency_switches")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`storage.switches.all: ${error.message}`);
+      return (data as DbSwitch[] | null ?? []).map(switchFromDb);
+    },
+    save: async (rows: EmergencySwitch[]): Promise<void> => {
+      await replaceAll("emergency_switches", rows.map(switchToDb));
+    },
+    /**
+     * Update only the heartbeat + status fields for a single switch — used
+     * on every incoming POST so dashboard online/offline is accurate.
+     * Creates the row if it doesn't exist yet (unregistered switches still
+     * appear with their data, just with status="offline" until registered).
+     */
+    touchHeartbeat: async (switchId: string): Promise<void> => {
+      const nowIso = new Date().toISOString();
+      const { error } = await client()
+        .from("emergency_switches")
+        .update({ last_heartbeat: nowIso, status: "online" })
+        .eq("switch_id", switchId);
+      // We don't auto-create unregistered switches — they appear via the
+      // alert location="Unknown" path instead. So a missing-row update is
+      // not an error.
+      if (error) {
+        console.error("storage.switches.touchHeartbeat:", error.message);
+      }
     },
   },
 

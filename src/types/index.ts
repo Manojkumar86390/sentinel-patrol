@@ -94,14 +94,39 @@ export interface AppConfig {
 }
 
 /**
+ * A registered Emergency Switch (Product 2).
+ *
+ * Physically: an ESP32 with 4 panic buttons, kept at the security guard's
+ * desk. Each switch has a unique switch_id and a free-form location string
+ * (NOT tied to the campus map pins — could be "Security Desk - Main Gate",
+ * "Hostel Office", etc.).
+ *
+ * Heartbeats every 30s. Online if heartbeat is recent; offline otherwise.
+ */
+export interface EmergencySwitch {
+  id: string;
+  switch_id: string;       // matches SWITCH_ID in the firmware
+  location: string;        // free-form, e.g. "Security Desk - Main Gate"
+  description?: string;
+  status: DeviceStatus;    // computed from last_heartbeat
+  last_heartbeat: string;  // ISO timestamp
+  created_at: string;
+}
+
+/**
  * An emergency button-press from the ESP32 hardware (Accident / Fire / Bleeding / Fight).
  * Stored in /data/emergency-alerts.json.
+ *
+ * Either espId OR switchId is set, depending on which product sent the alert:
+ *   - switchId: from a dedicated Emergency Switch (Product 2) — preferred
+ *   - espId:    from a Scanner that ALSO has buttons (legacy combined hardware)
  */
 export interface EmergencyAlert {
   id: string;
   type: AlertType;
-  espId: string;
-  location: string;        // resolved from esp32-scanners table; "Unknown" if not registered
+  espId?: string;          // legacy combined-hardware path
+  switchId?: string;       // new Emergency Switch product path
+  location: string;        // resolved from scanner or switch table; "Unknown" if not registered
   date: string;            // YYYY-MM-DD
   time: string;            // HH:MM:SS
   triggeredAt: string;     // ISO
