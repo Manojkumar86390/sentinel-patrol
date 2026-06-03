@@ -65,6 +65,7 @@ export interface BleDevice {
   mac_address: string;   // uppercased "AA:BB:CC:DD:EE:FF"
   ble_name: string;      // the name as broadcast over BLE (e.g. "HC-05")
   guard_name?: string;   // optional friendly label ("Rajesh", "Night Guard A")
+  photo_url?: string;    // public URL of the guard photo (Supabase Storage)
   notes?: string;
   created_at: string;
 }
@@ -101,12 +102,17 @@ export interface AppConfig {
  * (NOT tied to the campus map pins — could be "Security Desk - Main Gate",
  * "Hostel Office", etc.).
  *
+ * Coordinates are REQUIRED — they're used to plot the switch on the alerts
+ * map so emergencies are visualized at the right spot on campus.
+ *
  * Heartbeats every 30s. Online if heartbeat is recent; offline otherwise.
  */
 export interface EmergencySwitch {
   id: string;
   switch_id: string;       // matches SWITCH_ID in the firmware
   location: string;        // free-form, e.g. "Security Desk - Main Gate"
+  latitude: number;
+  longitude: number;
   description?: string;
   status: DeviceStatus;    // computed from last_heartbeat
   last_heartbeat: string;  // ISO timestamp

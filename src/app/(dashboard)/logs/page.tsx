@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLive } from "@/hooks/use-live";
-import type { PatrolEvent, EventStatus } from "@/types";
-import { FiSearch, FiDownload, FiFilter, FiRefreshCw } from "react-icons/fi";
+import type { PatrolEvent, EventStatus, BleDevice } from "@/types";
+import { FiSearch, FiDownload, FiFilter, FiRefreshCw, FiUser, FiX } from "react-icons/fi";
 
 const STATUS_FILTERS: Array<EventStatus | "all"> = ["all", "Verified", "Late", "Missed"];
 
@@ -21,11 +21,29 @@ const STATUS_VARIANT = {
 export default function LogsPage() {
   const { data: events, refresh } = useLive<PatrolEvent[]>("/api/patrol-events?limit=1000",
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 5000 });
+  // Also pull BLE devices so we can show a photo + guard name per row.
+  // Refreshes slowly — registrations are infrequent.
+  const { data: devices } = useLive<BleDevice[]>("/api/ble-devices",
+    { select: (r) => (r as { items: BleDevice[] }).items, intervalMs: 30000 });
 
   const [query,  setQuery]  = useState("");
   const [status, setStatus] = useState<EventStatus | "all">("all");
   const [page,   setPage]   = useState(1);
   const PAGE_SIZE = 10;
+
+  // Lightbox state — when set, we render a full-screen overlay with the
+  // clicked photo. Click anywhere or press Escape to close.
+  const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+
+  // Quick lookup of photo + guard name by MAC. Built once per render so it's
+  // free for the table rendering loop below.
+  const deviceByMac = useMemo(() => {
+    const m = new Map<string, BleDevice>();
+    for (const d of devices ?? []) {
+      m.set(d.mac_address.toUpperCase(), d);
+    }
+    return m;
+  }, [devices]);
 
   const all = events ?? [];
 
@@ -103,6 +121,7 @@ export default function LogsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)] border-b border-white/[0.04]">
+                    <th className="text-left font-medium py-3 px-5">Photo</th>
                     <th className="text-left font-medium py-3 px-5">Guard / Tag</th>
                     <th className="text-left font-medium py-3 px-5">Bluetooth MAC</th>
                     <th className="text-left font-medium py-3 px-5">Scanner</th>
@@ -115,29 +134,57 @@ export default function LogsPage() {
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-sm text-[var(--color-muted)]">
+                      <td colSpan={8} className="text-center py-12 text-sm text-[var(--color-muted)]">
                         No logs match your filters.
                       </td>
                     </tr>
                   )}
-                  {rows.map((e) => (
-                    <tr key={e.id} className="border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3 px-5">
-                        <p className="text-white font-medium">{e.guardName ?? e.name}</p>
-                        {e.guardName && (
-                          <p className="text-[10px] text-[var(--color-muted)]">{e.name}</p>
-                        )}
-                      </td>
-                      <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.bluetoothMac}</td>
-                      <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.espId}</td>
-                      <td className="py-3 px-5 text-white/90">{e.location}</td>
-                      <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.date}</td>
-                      <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.time}</td>
-                      <td className="py-3 px-5 text-right">
-                        <Badge variant={STATUS_VARIANT[e.status]}>{e.status}</Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((e) => {
+                    const device = deviceByMac.get(e.bluetoothMac.toUpperCase());
+                    const photo  = device?.photo_url;
+                    const label  = e.guardName ?? device?.guard_name ?? e.name;
+                    return (
+                      <tr key={e.id} className="border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 px-5">
+                          {photo ? (
+                            <button
+                              type="button"
+                              onClick={() => setLightbox({ url: photo, label })}
+                              aria-label={`View photo of ${label}`}
+                              className="block h-10 w-10 rounded-full overflow-hidden ring-1 ring-white/10 hover:ring-[var(--color-primary)] transition-all"
+                            >
+                              {/* Plain <img> deliberately — Next/Image with arbitrary
+                                  Supabase domains needs config, and a 40x40 thumbnail
+                                  doesn't justify that complexity. */}
+                              <img
+                                src={photo}
+                                alt={label}
+                                className="h-full w-full object-cover"
+                              />
+                            </button>
+                          ) : (
+                            <div className="h-10 w-10 rounded-full grid place-items-center bg-white/[0.04] ring-1 ring-white/10 text-[var(--color-muted)]">
+                              <FiUser className="h-4 w-4" />
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-5">
+                          <p className="text-white font-medium">{label}</p>
+                          {e.guardName && (
+                            <p className="text-[10px] text-[var(--color-muted)]">{e.name}</p>
+                          )}
+                        </td>
+                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.bluetoothMac}</td>
+                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.espId}</td>
+                        <td className="py-3 px-5 text-white/90">{e.location}</td>
+                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.date}</td>
+                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.time}</td>
+                        <td className="py-3 px-5 text-right">
+                          <Badge variant={STATUS_VARIANT[e.status]}>{e.status}</Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -159,6 +206,38 @@ export default function LogsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Photo lightbox — click overlay or X to dismiss. Escape also closes. */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm grid place-items-center p-6 cursor-pointer animate-[fadeIn_120ms_ease-out]"
+          onClick={() => setLightbox(null)}
+          onKeyDown={(e) => { if (e.key === "Escape") setLightbox(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Photo of ${lightbox.label}`}
+        >
+          <div
+            className="relative max-w-[90vw] max-h-[85vh] cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightbox(null)}
+              aria-label="Close"
+              className="absolute -top-3 -right-3 grid h-9 w-9 place-items-center rounded-full bg-white text-black hover:scale-105 transition-transform shadow-lg"
+            >
+              <FiX className="h-4 w-4" />
+            </button>
+            <img
+              src={lightbox.url}
+              alt={lightbox.label}
+              className="max-w-[90vw] max-h-[80vh] rounded-lg ring-1 ring-white/20 shadow-2xl object-contain bg-black"
+            />
+            <p className="mt-3 text-center text-sm text-white/90 font-medium">{lightbox.label}</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -21,11 +21,21 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   const idx = all.findIndex((s) => s.id === id);
   if (idx < 0) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  all[idx] = {
-    ...all[idx],
-    location:    (body.location    ?? all[idx].location).trim(),
-    description: (body.description ?? all[idx].description ?? "").trim() || undefined,
-  };
+  // Carefully accept partial updates — only fields the caller actually sent
+  // are touched. Coordinates remain valid numbers if not in the payload.
+  const next = { ...all[idx] };
+  if (typeof body.location === "string")       next.location    = body.location.trim();
+  if (typeof body.description === "string")    next.description = body.description.trim() || undefined;
+  if (body.latitude  !== undefined) {
+    const v = Number(body.latitude);
+    if (Number.isFinite(v) && v >= -90 && v <= 90) next.latitude = v;
+  }
+  if (body.longitude !== undefined) {
+    const v = Number(body.longitude);
+    if (Number.isFinite(v) && v >= -180 && v <= 180) next.longitude = v;
+  }
+
+  all[idx] = next;
   await db.switches.save(all);
   return NextResponse.json({ ok: true, switch: all[idx] });
 }

@@ -53,6 +53,15 @@ function client(): SupabaseClient {
   return _supabase;
 }
 
+/**
+ * Exposed for routes that need to use Supabase Storage (file uploads).
+ * Returns the same configured client as the internal `client()` — the
+ * service_role key has full access to storage so RLS isn't a concern here.
+ */
+export function getSupabase(): SupabaseClient {
+  return client();
+}
+
 // ─── PatrolEvent ─────────────────────────────────────────────────────────
 type DbPatrolEvent = {
   id:            string;
@@ -106,6 +115,7 @@ type DbBleDevice = {
   mac_address: string;
   ble_name:    string;
   guard_name:  string | null;
+  photo_url:   string | null;
   notes:       string | null;
   created_at:  string;
 };
@@ -116,7 +126,8 @@ function bleFromDb(r: DbBleDevice): BleDevice {
     mac_address: r.mac_address,
     ble_name:    r.ble_name,
     guard_name:  r.guard_name ?? undefined,
-    notes:       r.notes ?? undefined,
+    photo_url:   r.photo_url  ?? undefined,
+    notes:       r.notes      ?? undefined,
     created_at:  r.created_at,
   };
 }
@@ -127,7 +138,8 @@ function bleToDb(d: BleDevice): DbBleDevice {
     mac_address: d.mac_address,
     ble_name:    d.ble_name,
     guard_name:  d.guard_name ?? null,
-    notes:       d.notes ?? null,
+    photo_url:   d.photo_url  ?? null,
+    notes:       d.notes      ?? null,
     created_at:  d.created_at,
   };
 }
@@ -175,6 +187,8 @@ type DbSwitch = {
   id:             string;
   switch_id:      string;
   location:       string;
+  latitude:       number | null;
+  longitude:      number | null;
   description:    string | null;
   status:         string;
   last_heartbeat: string;
@@ -186,6 +200,8 @@ function switchFromDb(r: DbSwitch): EmergencySwitch {
     id:             r.id,
     switch_id:      r.switch_id,
     location:       r.location,
+    latitude:       r.latitude  ?? 0,
+    longitude:      r.longitude ?? 0,
     description:    r.description ?? undefined,
     status:         r.status as DeviceStatus,
     last_heartbeat: r.last_heartbeat,
@@ -198,6 +214,8 @@ function switchToDb(s: EmergencySwitch): DbSwitch {
     id:             s.id,
     switch_id:      s.switch_id,
     location:       s.location,
+    latitude:       s.latitude,
+    longitude:      s.longitude,
     description:    s.description ?? null,
     status:         s.status,
     last_heartbeat: s.last_heartbeat,

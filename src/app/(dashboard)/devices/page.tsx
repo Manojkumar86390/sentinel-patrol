@@ -82,10 +82,36 @@ function BleDevicesTab() {
     setError(null);
     setBusy(true);
     const fd = new FormData(e.currentTarget);
+
+    // Step 1 — if a photo was selected, upload it to Supabase Storage first.
+    // We capture the public URL and pass it as photo_url in step 2.
+    let photoUrl: string | undefined = undefined;
+    const photoFile = fd.get("photo");
+    if (photoFile instanceof File && photoFile.size > 0) {
+      try {
+        const upFd = new FormData();
+        upFd.append("file", photoFile);
+        const upRes = await fetch("/api/upload/guard-photo", { method: "POST", body: upFd });
+        const upJson = await upRes.json();
+        if (!upRes.ok || !upJson.ok) {
+          setError(upJson.error ?? "Photo upload failed");
+          setBusy(false);
+          return;
+        }
+        photoUrl = upJson.url as string;
+      } catch (e) {
+        setError("Photo upload failed (network error)");
+        setBusy(false);
+        return;
+      }
+    }
+
+    // Step 2 — register the BLE device, including the photo_url if any.
     const payload = {
       mac_address: String(fd.get("mac_address") ?? "").trim(),
       ble_name:    String(fd.get("ble_name") ?? "").trim(),
       guard_name:  String(fd.get("guard_name") ?? "").trim(),
+      photo_url:   photoUrl,
       notes:       String(fd.get("notes") ?? "").trim(),
     };
     try {
@@ -150,6 +176,19 @@ function BleDevicesTab() {
             </Field>
             <Field label="Notes (optional)">
               <Input name="notes" placeholder="Spare tag, room 102, etc." />
+            </Field>
+            {/* Photo upload — file input styled to match other Inputs. Only
+                JPEG/PNG/WebP up to 5 MB are accepted (server-validated too). */}
+            <Field label="Guard Photo (optional)" className="sm:col-span-2">
+              <input
+                type="file"
+                name="photo"
+                accept="image/jpeg,image/png,image/webp"
+                className="w-full text-sm text-[var(--color-text)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[var(--color-primary)]/15 file:text-[var(--color-primary)] file:font-medium hover:file:bg-[var(--color-primary)]/25 file:cursor-pointer cursor-pointer rounded-md border border-white/10 bg-white/[0.02] px-3 py-2"
+              />
+              <p className="text-[10px] text-[var(--color-muted)] mt-1">
+                Shown next to the guard&rsquo;s patrol entries in the Logs page. Max 5 MB · JPEG / PNG / WebP.
+              </p>
             </Field>
             <div className="sm:col-span-2 flex items-center gap-3">
               <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Register"}</Button>
@@ -368,6 +407,8 @@ function EmergencySwitchesTab() {
       switch_id:   String(fd.get("switch_id") ?? "").trim(),
       location:    String(fd.get("location")  ?? "").trim(),
       description: String(fd.get("description") ?? "").trim(),
+      latitude:    Number(fd.get("latitude")),
+      longitude:   Number(fd.get("longitude")),
     };
     try {
       const res = await fetch("/api/emergency-switches", {
@@ -420,15 +461,36 @@ function EmergencySwitchesTab() {
             buttons (fire / accident / bleeding / fight), kept at the security guard&rsquo;s desk.
             The <strong className="text-white">Switch ID</strong> must match the <code className="mono text-[var(--color-primary)]">SWITCH_ID</code> in
             the firmware (e.g. <code className="mono text-[var(--color-primary)]">ESP32-SWITCH-01</code>).
-            Location is free-form text (e.g. <em>&ldquo;Security Desk &mdash; Main Gate&rdquo;</em>) and is
-            shown on alerts.
+            Location is free-form text and is shown on alerts.
+            <br/>
+            <strong className="text-white">Latitude &amp; Longitude</strong> are used to pin the switch on the alerts map.
+            You can get them from Google Maps: right-click a spot &rarr; the first item is the coords. Copy / paste them in.
+            Example values near IIITDM Kurnool: lat <code className="mono text-[var(--color-primary)]">15.762034</code>, lng <code className="mono text-[var(--color-primary)]">78.039661</code>.
           </p>
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-3">
             <Field label="Switch ID (matches firmware)">
               <Input name="switch_id" required placeholder="ESP32-SWITCH-01" />
             </Field>
-            <Field label="Location">
+            <Field label="Location (free text)">
               <Input name="location" required placeholder="Security Desk - Main Gate" />
+            </Field>
+            <Field label="Latitude">
+              <Input
+                name="latitude"
+                required
+                type="number"
+                step="any"
+                placeholder="15.762034"
+              />
+            </Field>
+            <Field label="Longitude">
+              <Input
+                name="longitude"
+                required
+                type="number"
+                step="any"
+                placeholder="78.039661"
+              />
             </Field>
             <Field label="Description (optional)" className="sm:col-span-2">
               <Input name="description" placeholder="e.g. Wall-mounted next to gate cabin" />
@@ -447,6 +509,7 @@ function EmergencySwitchesTab() {
             <tr className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)] bg-white/[0.02]">
               <th className="text-left font-medium py-2.5 px-4">Switch ID</th>
               <th className="text-left font-medium py-2.5 px-4">Location</th>
+              <th className="text-left font-medium py-2.5 px-4">Coords</th>
               <th className="text-left font-medium py-2.5 px-4">Description</th>
               <th className="text-left font-medium py-2.5 px-4">Last Heartbeat</th>
               <th className="text-left font-medium py-2.5 px-4">Status</th>
@@ -455,12 +518,15 @@ function EmergencySwitchesTab() {
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-[var(--color-muted)]">No emergency switches yet — register one above.</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-sm text-[var(--color-muted)]">No emergency switches yet — register one above.</td></tr>
             )}
             {filtered.map((s) => (
               <tr key={s.id} className="border-t border-white/[0.04]">
                 <td className="py-2.5 px-4 mono text-xs text-white">{s.switch_id}</td>
                 <td className="py-2.5 px-4 text-white">{s.location}</td>
+                <td className="py-2.5 px-4 mono text-[10px] text-[var(--color-muted)]">
+                  {s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
+                </td>
                 <td className="py-2.5 px-4 text-xs text-[var(--color-muted)]">{s.description ?? "—"}</td>
                 <td className="py-2.5 px-4 mono text-xs text-[var(--color-muted)]">{timeAgo(s.last_heartbeat)}</td>
                 <td className="py-2.5 px-4">

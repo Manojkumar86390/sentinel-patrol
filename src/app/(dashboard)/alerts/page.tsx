@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,21 @@ import {
   FiCheck, FiMapPin, FiCpu, FiClock, FiTrash2,
   FiVolume2, FiVolumeX,
 } from "react-icons/fi";
-import type { AlertType, EmergencyAlert } from "@/types";
+import type { AlertType, EmergencyAlert, EmergencySwitch, EspScanner } from "@/types";
+
+// The alerts map embeds Leaflet, which depends on `window`. Lazy-loaded
+// client-side to keep SSR clean.
+const AlertsMap = dynamic(
+  () => import("@/components/dashboard/alerts-map").then((m) => m.AlertsMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[360px] rounded-xl ring-1 ring-white/10 bg-[var(--color-surface)] grid place-items-center text-sm text-[var(--color-muted)]">
+        Loading map…
+      </div>
+    ),
+  }
+);
 
 // Visual treatment per alert type.
 const TYPE_STYLE: Record<AlertType, { color: string; bg: string; ring: string; icon: React.ComponentType<{ className?: string }>; label: string; }> = {
@@ -59,9 +74,50 @@ function playAlarmBeep() {
   }
 }
 
+/**
+ * Speak an emergency alert using the browser's built-in Text-to-Speech engine.
+ *
+ * We pronounce the type + location ("Fire is detected at Security Desk Main
+ * Gate") three times in a row, with a short gap between repetitions. The
+ * SpeechSynthesisUtterance queue handles the spacing for us — utterances
+ * play sequentially.
+ *
+ * Browsers gate audio behind a user interaction on first load. If speech is
+ * blocked, we silently no-op (same as the beep helper).
+ */
+function speakAlert(type: AlertType, location: string) {
+  try {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    // Cancel any in-flight speech so a fresh alert isn't queued behind an old one
+    window.speechSynthesis.cancel();
+
+    const typeLabel = TYPE_STYLE[type]?.label ?? type;
+    const phrase = `${typeLabel} is detected at ${location}.`;
+
+    // Repeat 3 times — same urgency model as the beep
+    for (let i = 0; i < 3; i++) {
+      const u = new SpeechSynthesisUtterance(phrase);
+      u.lang   = "en-IN";   // Indian English if available, else falls back automatically
+      u.rate   = 0.95;      // very slightly slower than default for clarity
+      u.pitch  = 1.0;
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+  } catch {
+    /* Speech not available — silently ignore */
+  }
+}
+
 export default function AlertsPage() {
   const { data: alerts, refresh } = useLive<EmergencyAlert[]>("/api/emergency-alerts",
     { select: (r) => (r as { items: EmergencyAlert[] }).items, intervalMs: 3000 });
+  // Background context for the map — these don't change frequently, so we
+  // poll slowly (every 10s).
+  const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners",
+    { select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 10000 });
+  const { data: switches } = useLive<EmergencySwitch[]>("/api/emergency-switches",
+    { select: (r) => (r as { items: EmergencySwitch[] }).items, intervalMs: 10000 });
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [muted,  setMuted]  = useState(false);
@@ -89,7 +145,14 @@ export default function AlertsPage() {
     );
 
     if (newOnes.length > 0) {
-      if (!muted) playAlarmBeep();
+      if (!muted) {
+        playAlarmBeep();
+        // Speak each new alert — typically only 1 at a time, but if a batch
+        // came in we'll narrate them sequentially.
+        for (const a of newOnes) {
+          speakAlert(a.type, a.location);
+        }
+      }
       setJustArrived((prev) => {
         const next = new Set(prev);
         newOnes.forEach((a) => next.add(a.id));
@@ -107,6 +170,14 @@ export default function AlertsPage() {
 
     seenIdsRef.current = currentIds;
   }, [alerts, muted]);
+
+  // If the user mutes mid-utterance, stop the speech queue immediately so
+  // they're not stuck listening to the rest of the loop.
+  useEffect(() => {
+    if (muted && typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [muted]);
 
   const all = alerts ?? [];
   const active   = useMemo(() => all.filter((a) =>  !a.acknowledged), [all]);
@@ -141,6 +212,47 @@ export default function AlertsPage() {
       />
 
       <main className="px-4 sm:px-8 py-6 space-y-6">
+        {/* Live emergency map — checkpoints + switches + red pulsing markers
+            for any active (unacknowledged) alerts. Sits above the existing
+            cards/popups; the cards below remain unchanged. */}
+        <Card className="overflow-hidden">
+          <div className="p-4 flex items-center justify-between border-b border-white/[0.06]">
+            <div>
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <FiMapPin className="h-4 w-4 text-[var(--color-danger)]" />
+                Emergency map · live view
+              </h2>
+              <p className="text-xs text-[var(--color-muted)] mt-0.5">
+                {active.length > 0
+                  ? `${active.length} active emergency${active.length === 1 ? "" : "s"} on campus`
+                  : "No active emergencies — all clear"}
+              </p>
+            </div>
+            <div className="hidden sm:flex items-center gap-3 text-[10px] text-[var(--color-muted)]">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[var(--color-success)] shadow-[0_0_6px_var(--color-success)]" />
+                Scanner
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-blue-500" />
+                Switch
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[var(--color-danger)] shadow-[0_0_6px_var(--color-danger)]" />
+                Active emergency
+              </span>
+            </div>
+          </div>
+          <div className="p-4">
+            <AlertsMap
+              scanners={scanners ?? []}
+              switches={switches ?? []}
+              activeAlerts={active}
+              height={360}
+            />
+          </div>
+        </Card>
+
         {/* Active section — pulsing if anything unacknowledged */}
         <section>
           <div className="flex items-center justify-between mb-3">

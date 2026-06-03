@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const mac_address = (body.mac_address ?? "").trim().toUpperCase();
   const ble_name    = (body.ble_name ?? "").trim();
   const guard_name  = (body.guard_name ?? "").trim() || undefined;
+  const photo_url   = (body.photo_url  ?? "").trim() || undefined;
   const notes       = (body.notes ?? "").trim() || undefined;
 
   if (!mac_address || !ble_name) {
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     mac_address,
     ble_name,
     guard_name,
+    photo_url,
     notes,
     created_at: new Date().toISOString(),
   };

@@ -38,10 +38,23 @@ export async function POST(req: Request) {
   const switch_id   = (body.switch_id ?? "").trim();
   const location    = (body.location ?? "").trim();
   const description = (body.description ?? "").trim() || undefined;
+  const latitude    = Number(body.latitude);
+  const longitude   = Number(body.longitude);
 
   if (!switch_id || !location) {
     return NextResponse.json(
       { ok: false, error: "switch_id and location are required" },
+      { status: 400 }
+    );
+  }
+  // Coordinates are required so the switch can be plotted on the alerts map.
+  // We bound-check to typical campus values (somewhere on Earth) — better
+  // to fail fast than store NaN.
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      latitude < -90 || latitude > 90 ||
+      longitude < -180 || longitude > 180) {
+    return NextResponse.json(
+      { ok: false, error: "latitude and longitude are required and must be valid coordinates" },
       { status: 400 }
     );
   }
@@ -56,6 +69,8 @@ export async function POST(req: Request) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     switch_id,
     location,
+    latitude,
+    longitude,
     description,
     status: "offline",
     last_heartbeat: now,
