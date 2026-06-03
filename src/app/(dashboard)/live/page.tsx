@@ -47,12 +47,24 @@ function LivePageInner() {
     return () => clearInterval(id);
   }, [demoMode]);
 
+  // Tracking mode for the map markers.
+  //   "rssi"      → live RSSI trilateration (smooth motion, but ±15m noise)
+  //   "last-scan" → snap each guard to whichever checkpoint last scanned them
+  //                 (less noisy; preferred when guards aren't constantly moving)
+  // The toggle lives in the map header. We default to "rssi" so the existing
+  // demo flow doesn't break.
+  const [positionMode, setPositionMode] = useState<"rssi" | "last-scan">("rssi");
+
   const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners",
     { select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 5000 });
   const { data: events }   = useLive<PatrolEvent[]>("/api/patrol-events?limit=100",
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 3000 });
-  const { data: guardPositions } = useLive<GuardPosition[]>("/api/guard-positions",
-    { select: (r) => (r as { items: GuardPosition[] }).items, intervalMs: 2000 });
+  // ONE live hook that swaps the URL when the mode changes. useLive treats the
+  // URL as the cache key, so flipping it transparently switches feeds.
+  const { data: guardPositions } = useLive<GuardPosition[]>(
+    positionMode === "rssi" ? "/api/guard-positions" : "/api/last-scan-positions",
+    { select: (r) => (r as { items: GuardPosition[] }).items, intervalMs: 2000 }
+  );
 
   const ss = scanners ?? [];
   const es = events ?? [];
@@ -88,16 +100,49 @@ function LivePageInner() {
                     Demo
                   </span>
                 )}
+                {!demoMode && positionMode === "last-scan" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-400/30">
+                    Last scan
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-[var(--color-muted)] mt-0.5">
                 {demoMode
                   ? "Showing simulated guards — no real hardware needed"
-                  : (onlineCount > 0
-                      ? `${onlineCount} of ${ss.length} scanner${ss.length === 1 ? "" : "s"} online`
-                      : "Waiting for ESP32 heartbeats")}
+                  : positionMode === "last-scan"
+                    ? `Each guard pinned to their last detection (within the last 30 min)`
+                    : (onlineCount > 0
+                        ? `${onlineCount} of ${ss.length} scanner${ss.length === 1 ? "" : "s"} online`
+                        : "Waiting for ESP32 heartbeats")}
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Position-mode toggle (RSSI live trilateration vs Last-Scan
+                  snapshot). Demo mode forces RSSI behaviour since the fake
+                  simulator synthesizes RSSI values anyway. */}
+              <button
+                type="button"
+                onClick={() => setPositionMode((m) => m === "rssi" ? "last-scan" : "rssi")}
+                disabled={demoMode}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                  positionMode === "last-scan"
+                    ? "bg-blue-500/15 border-blue-400/40 text-blue-300 hover:bg-blue-500/25"
+                    : "border-white/10 text-[var(--color-muted)] hover:text-white hover:bg-white/[0.04]",
+                  demoMode && "opacity-50 cursor-not-allowed"
+                )}
+                title={
+                  demoMode
+                    ? "Demo mode is using RSSI simulation"
+                    : positionMode === "rssi"
+                      ? "Switch to Last-Scan view (snap each guard to whichever checkpoint scanned them last)"
+                      : "Switch to Live RSSI view (real-time trilateration between checkpoints)"
+                }
+              >
+                {positionMode === "rssi" ? <FiActivity className="h-3 w-3" /> : <FiMapPin className="h-3 w-3" />}
+                {positionMode === "rssi" ? "Live RSSI" : "Last scan"}
+              </button>
+
               {/* Demo Mode toggle button */}
               <button
                 type="button"
@@ -150,9 +195,20 @@ function LivePageInner() {
               <code className="mono text-[var(--color-primary)]">MVHR Hostel</code>.
             </p>
             <p className="mt-2 text-[10px] text-[var(--color-muted)]">
-              🟡 <strong>Live guard tracking</strong> — yellow markers show guards detected by 1+ scanners in the last 30s.
-              Position is computed from BLE signal strength (RSSI) using weighted interpolation between scanners.
-              Click a guard marker to see the RSSI sample data used. Accuracy improves with more scanners deployed.
+              🟡 <strong>Guard tracking</strong> — yellow markers show recently detected guards.{" "}
+              {positionMode === "rssi" ? (
+                <>
+                  Currently in <strong className="text-white">Live RSSI</strong> mode: position is computed from
+                  Bluetooth signal strength using weighted interpolation between scanners.
+                  Click a marker to see the RSSI sample data used. Accuracy improves with more scanners deployed.
+                </>
+              ) : (
+                <>
+                  Currently in <strong className="text-white">Last Scan</strong> mode: each guard is pinned to
+                  whichever checkpoint scanned them most recently. More accurate than RSSI but only updates when
+                  the guard passes a scanner. Hidden after 30 min of no activity.
+                </>
+              )}
             </p>
           </div>
         </Card>
