@@ -22,6 +22,11 @@ import type {
   BleDevice,
   EspScanner,
   EmergencySwitch,
+  PatrolRoute,
+  RouteAssignment,
+  RouteType,
+  LoopingRouteConfig,
+  FixedRouteConfig,
   AppConfig,
   EmergencyAlert,
   EventStatus,
@@ -415,6 +420,93 @@ export const db = {
       const { error } = await client().from("emergency_alerts").insert(alertToDb(alert));
       if (error) throw new Error(`storage.alerts.push: ${error.message}`);
       return alert;
+    },
+  },
+
+  // ─── Patrol Routes ─────────────────────────────────────────────────────
+  // Each route has a config column stored as jsonb. We trust the shape we
+  // wrote to it (LoopingRouteConfig or FixedRouteConfig) — bad data here
+  // would mean a bug in our own POST handler, not user input.
+  routes: {
+    all: async (): Promise<PatrolRoute[]> => {
+      const { data, error } = await client()
+        .from("patrol_routes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`storage.routes.all: ${error.message}`);
+      return ((data ?? []) as Array<{
+        id: string; name: string; description: string | null; route_type: string;
+        late_tolerance_min: number; shift_start: string | null; shift_end: string | null;
+        config: LoopingRouteConfig | FixedRouteConfig; active: boolean; created_at: string;
+      }>).map((r) => ({
+        id:                 r.id,
+        name:               r.name,
+        description:        r.description ?? undefined,
+        route_type:         r.route_type as RouteType,
+        late_tolerance_min: r.late_tolerance_min,
+        shift_start:        r.shift_start ?? undefined,
+        shift_end:          r.shift_end   ?? undefined,
+        config:             r.config,
+        active:             r.active,
+        created_at:         r.created_at,
+      }));
+    },
+    save: async (route: PatrolRoute): Promise<void> => {
+      const { error } = await client().from("patrol_routes").upsert({
+        id:                 route.id,
+        name:               route.name,
+        description:        route.description ?? null,
+        route_type:         route.route_type,
+        late_tolerance_min: route.late_tolerance_min,
+        shift_start:        route.shift_start ?? null,
+        shift_end:          route.shift_end   ?? null,
+        config:             route.config,
+        active:             route.active,
+        created_at:         route.created_at,
+      });
+      if (error) throw new Error(`storage.routes.save: ${error.message}`);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await client().from("patrol_routes").delete().eq("id", id);
+      if (error) throw new Error(`storage.routes.delete: ${error.message}`);
+    },
+  },
+
+  assignments: {
+    all: async (): Promise<RouteAssignment[]> => {
+      const { data, error } = await client()
+        .from("route_assignments")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`storage.assignments.all: ${error.message}`);
+      return ((data ?? []) as Array<{
+        id: string; route_id: string; ble_mac: string;
+        days_of_week: string; created_at: string;
+      }>).map((r) => ({
+        id:           r.id,
+        route_id:     r.route_id,
+        ble_mac:      r.ble_mac,
+        days_of_week: r.days_of_week,
+        created_at:   r.created_at,
+      }));
+    },
+    save: async (a: RouteAssignment): Promise<void> => {
+      const { error } = await client().from("route_assignments").upsert({
+        id:           a.id,
+        route_id:     a.route_id,
+        ble_mac:      a.ble_mac,
+        days_of_week: a.days_of_week,
+        created_at:   a.created_at,
+      });
+      if (error) throw new Error(`storage.assignments.save: ${error.message}`);
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await client().from("route_assignments").delete().eq("id", id);
+      if (error) throw new Error(`storage.assignments.delete: ${error.message}`);
+    },
+    deleteForRoute: async (routeId: string): Promise<void> => {
+      const { error } = await client().from("route_assignments").delete().eq("route_id", routeId);
+      if (error) throw new Error(`storage.assignments.deleteForRoute: ${error.message}`);
     },
   },
 

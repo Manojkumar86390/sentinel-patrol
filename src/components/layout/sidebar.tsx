@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   FiGrid, FiActivity, FiRadio, FiCpu,
   FiFileText, FiSettings, FiLogOut, FiShield, FiCheckSquare, FiAlertOctagon,
+  FiMap, FiTarget,
 } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,8 @@ const NAV = [
   { href: "/logs",       label: "Patrol Logs",      icon: FiActivity },
   { href: "/live",       label: "Live Status",      icon: FiRadio },
   { href: "/devices",    label: "Devices",          icon: FiCpu },
+  { href: "/routes",     label: "Patrol Routes",    icon: FiMap },
+  { href: "/compliance", label: "Compliance",       icon: FiTarget },
   { href: "/reports",    label: "Reports",          icon: FiFileText },
   { href: "/attendance", label: "Attendance",       icon: FiCheckSquare },
   { href: "/alerts",     label: "Emergency Alerts", icon: FiAlertOctagon },

@@ -155,3 +155,81 @@ export interface DashboardStats {
   verified_today:           number;
   active_alerts:            number;  // unacknowledged emergency alerts
 }
+
+// =============================================================================
+// Patrol routes & compliance (added in the routes feature)
+// =============================================================================
+
+/**
+ * A "looping" route definition. The guard walks the listed checkpoints in
+ * order, repeating every `intervalMin` minutes throughout the shift.
+ *
+ * Example: ["ESP32-SCANNER-01", "ESP32-SCANNER-02"] with intervalMin=30 means
+ * every 30 minutes the guard should pass both scanners (one then the other).
+ */
+export interface LoopingRouteConfig {
+  intervalMin: number;        // minutes between full loops
+  checkpoints: string[];      // ordered list of esp_id values
+}
+
+/**
+ * A "fixed" route definition. Each checkpoint has a specific time-of-day
+ * the guard must reach it (HH:MM, 24h).
+ */
+export interface FixedRouteConfig {
+  schedule: Array<{
+    time:  string;            // "HH:MM" (24h)
+    espId: string;            // matches esp32_scanners.esp_id
+  }>;
+}
+
+export type RouteType = "looping" | "fixed";
+
+export interface PatrolRoute {
+  id: string;
+  name: string;
+  description?: string;
+  route_type: RouteType;
+  late_tolerance_min: number;
+  shift_start?: string;       // "HH:MM" 24h, optional. If absent, route is 24/7.
+  shift_end?: string;         // "HH:MM" 24h, optional. May wrap past midnight.
+  config: LoopingRouteConfig | FixedRouteConfig;
+  active: boolean;
+  created_at: string;
+}
+
+export interface RouteAssignment {
+  id: string;
+  route_id: string;
+  ble_mac: string;             // uppercased MAC
+  days_of_week: string;        // 7 chars of 0/1, Mon-first. "1111111" = every day.
+  created_at: string;
+}
+
+/** Status of one expected checkpoint in today's compliance view. */
+export type CheckpointStatus = "completed" | "missed" | "late" | "upcoming";
+
+export interface ComplianceSlot {
+  expectedTime: string;        // "HH:MM"
+  espId:        string;
+  location:     string;
+  status:       CheckpointStatus;
+  actualTime?:  string;        // "HH:MM:SS" if completed/late
+  delayMin?:    number;        // minutes after expectedTime (negative = early)
+}
+
+/** Per-guard daily compliance summary. */
+export interface ComplianceSummary {
+  bleMac:        string;
+  guardName?:    string;
+  bleName?:      string;
+  routeId:       string;
+  routeName:     string;
+  totalExpected: number;       // expected checkpoints so far (up to "now")
+  completed:     number;       // completed on time OR early
+  late:          number;
+  missed:        number;
+  upcoming:      number;       // expected later today
+  compliancePct: number;       // completed / (totalExpected - upcoming), 0-100
+  slots:         ComplianceSlot[];
+}
