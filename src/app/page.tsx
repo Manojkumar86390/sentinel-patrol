@@ -22,7 +22,6 @@ import {
   FiMapPin,
   FiPhone,
   FiRadio,
-  FiServer,
   FiShield,
   FiX,
   FiZap,
@@ -35,13 +34,6 @@ const FEATURES = [
   { icon: FiFileText, title: "Reports & Exports",    body: "Daily and weekly reports exportable to CSV / Excel — filter by guard, date range, or checkpoint." },
   { icon: FiShield,   title: "Role-based Access",    body: "Admin authentication and session management for security supervisors and management." },
   { icon: FiZap,      title: "Sub-second Refresh",   body: "Auto-polling every 10–15 seconds; ready to upgrade to WebSockets for full push delivery." },
-];
-
-const TECH_STACK = [
-  { Icon: FiCode,     label: "Frontend",  value: "Next.js 16 · React 19 · Tailwind v4" },
-  { Icon: FiServer,   label: "Backend",   value: "PHP 8 / Python Flask · REST API" },
-  { Icon: FiDatabase, label: "Database",  value: "MySQL 8.0 with PDO" },
-  { Icon: FiCpu,      label: "Hardware",  value: "ESP32 · BLE 4.2 · Arduino" },
 ];
 
 export default function LandingPage() {
@@ -220,33 +212,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Tech stack strip */}
-      <section id="tech" className="relative py-20 px-6 lg:px-10 border-t border-white/[0.04]">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <Badge variant="info" className="mb-4">Tech Stack</Badge>
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-white">
-              Modern stack, classroom-friendly.
-            </h2>
-            <p className="mt-3 text-[var(--color-muted)]">
-              Familiar tools that any college lab can deploy — no exotic dependencies.
-            </p>
-          </div>
-
-          <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {TECH_STACK.map(({ Icon, label, value }) => (
-              <Card key={label} className="p-5">
-                <Icon className="h-5 w-5 text-[var(--color-primary)]" />
-                <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  {label}
-                </p>
-                <p className="mt-1 text-sm text-white font-medium">{value}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Manual vs Sentinel */}
       <section id="comparison" className="relative py-24 px-6 lg:px-10 border-t border-white/[0.04]">
         <div className="mx-auto max-w-6xl">
@@ -385,32 +350,23 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Members */}
-            <div className="grid sm:grid-cols-3 gap-3 pt-5">
+            {/* Members. Dr. Eswaramoorthy is included as the 4th card so the
+                page reads as one combined team rather than students + advisor. */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-5">
               {[
-                { name: "D. ManojKumar",  roll: "12EC0020" },
-                { name: "Mridul S Kumar", roll: "12EC0006" },
-                { name: "P. Sai Krishna", roll: "123EC0016" },
+                { name: "D. ManojKumar",       sub: "12EC0020" },
+                { name: "Mridul S Kumar",      sub: "12EC0006" },
+                { name: "P. Sai Krishna",      sub: "123EC0016" },
+                { name: "Dr. Eswaramoorthy K V", sub: "Assistant Professor" },
               ].map((m) => (
                 <div
-                  key={m.roll}
+                  key={m.name}
                   className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3 hover:border-[var(--color-primary)]/20 transition-colors"
                 >
                   <p className="text-sm font-medium text-white truncate">{m.name}</p>
-                  <p className="text-[11px] mono text-[var(--color-muted)] mt-0.5">{m.roll}</p>
+                  <p className="text-[11px] mono text-[var(--color-muted)] mt-0.5">{m.sub}</p>
                 </div>
               ))}
-            </div>
-
-            {/* Supervisor */}
-            <div className="mt-5 pt-5 border-t border-white/[0.04] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-muted)]">
-                Under the guidance of
-              </p>
-              <div className="sm:ml-auto text-right">
-                <p className="text-sm font-medium text-white">Dr. Eswaramoorthy K V</p>
-                <p className="text-[11px] text-[var(--color-muted)]">Assistant Professor</p>
-              </div>
             </div>
           </div>
         </div>
