@@ -7,9 +7,13 @@
 //
 // Time semantics:
 //   • "Today" means the local-time day in IST (the system runs in India).
-//   • Early scans (BEFORE the expected slot) STILL count as on-time, no
-//     upper bound on how early.
-//   • Late tolerance is configured per route. After that, the slot is "late".
+//   • Tolerance is SYMMETRIC: scans within ±tolerance of the expected time
+//     count as on-time. So with tolerance=1, a slot at 11:00 accepts any
+//     scan between 10:59 and 11:01 as on-time.
+//   • Beyond +tolerance up to +2*tolerance is "late".
+//   • Scans more than `tolerance` minutes EARLIER than the slot don't match
+//     this slot at all (they probably belong to a different slot or are
+//     unrelated patrols).
 //   • Once we're past `expectedTime + 2 * tolerance`, an unscanned slot is
 //     "missed". Earlier than that, it's "upcoming".
 //
@@ -121,9 +125,14 @@ function expectedSlotsForToday(
 /**
  * For a single slot, find the matching patrol event in `eventsForMac` that
  * comes closest to the expected time. "Matching" = same espId AND falls
- * within the allowed window for that slot (any time before expected up to
- * expected + 2 * tolerance after). Returns the chosen event + its delay
- * (positive = late, negative = early, 0 = exactly on time).
+ * within the allowed window:
+ *
+ *     [expected - tolerance, expected + 2*tolerance]
+ *
+ * Symmetric on the early side: scans more than `tolerance` minutes earlier
+ * don't count for THIS slot (they may belong to an earlier slot, or be
+ * unrelated). Returns the chosen event + its delay (positive = late,
+ * negative = early, 0 = exactly on time).
  */
 function findMatchingEvent(
   expectedMinute: number,
@@ -131,13 +140,15 @@ function findMatchingEvent(
   toleranceMin: number,
   eventsForMac: Array<{ espId: string; minutes: number; iso: string; time: string }>,
 ): { iso: string; time: string; delay: number } | null {
-  const cutoffLate = expectedMinute + 2 * toleranceMin;
+  const earliestAllowed = expectedMinute - toleranceMin;
+  const cutoffLate      = expectedMinute + 2 * toleranceMin;
   let best: typeof eventsForMac[0] | null = null;
   let bestDist = Infinity;
 
   for (const e of eventsForMac) {
     if (e.espId !== espId) continue;
-    if (e.minutes > cutoffLate) continue;       // too late even for "late" bucket
+    if (e.minutes < earliestAllowed) continue;  // too early — doesn't match this slot
+    if (e.minutes > cutoffLate) continue;       // too late even for the "late" bucket
     const dist = Math.abs(e.minutes - expectedMinute);
     if (dist < bestDist) {
       bestDist = dist;
@@ -219,7 +230,10 @@ export function computeCompliance({
         const location = locByEsp.get(espId) ?? espId;
 
         if (match) {
-          const isOnTime = match.delay <= tolerance;
+          // On-time when scan is within ±tolerance. Late when after +tolerance.
+          // (The matching window already rejected anything more than -tolerance
+          // early, so a negative `delay` here is guaranteed to be in [-tol, 0].)
+          const isOnTime = Math.abs(match.delay) <= tolerance;
           if (isOnTime) completed++; else late++;
           return {
             expectedTime: formatHHMM(expectedMinute),

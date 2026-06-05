@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
+import { GlobalAlertWatcher } from "@/components/dashboard/global-alert-watcher";
 
 /**
  * Route-group layout for all authenticated pages.
@@ -10,6 +11,10 @@ import { Sidebar } from "@/components/layout/sidebar";
  *      always feel like a dark ops center.
  *   2. The inner div has `page-fade-in` so navigating between dashboard
  *      pages animates in gently instead of snapping.
+ *   3. `<GlobalAlertWatcher />` runs in the background on every dashboard
+ *      page, polling for new emergency alerts and playing audio. This is
+ *      separate from the /alerts page's own polling so audio fires even
+ *      when the user is on Dashboard, Logs, Live Status, etc.
  */
 export default function DashboardLayout({
   children,
@@ -21,6 +26,7 @@ export default function DashboardLayout({
       data-theme="dark"
       className="min-h-screen bg-[var(--color-bg)]"
     >
+      <GlobalAlertWatcher />
       <Sidebar />
       <div className="md:pl-64">
         <div className="page-fade-in">{children}</div>

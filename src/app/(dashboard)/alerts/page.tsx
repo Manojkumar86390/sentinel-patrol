@@ -37,77 +37,9 @@ const TYPE_STYLE: Record<AlertType, { color: string; bg: string; ring: string; i
   fight:    { color: "text-amber-400",  bg: "bg-amber-500/10",  ring: "ring-amber-500/30",  icon: FiUsers,         label: "Fight" },
 };
 
-/**
- * Play a sharp three-pulse alarm using Web Audio API. No external sound file
- * required — synthesized in-browser, so it works offline and on Vercel without
- * shipping an audio asset. Returns silently if the browser blocks audio (e.g.
- * before any user interaction on the page).
- */
-function playAlarmBeep() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-
-    // Three quick pulses at 880 Hz (high enough to feel urgent, not painful)
-    for (let i = 0; i < 3; i++) {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "square";              // square wave = sharper, alarm-like
-      osc.frequency.value = 880;
-
-      const start = ctx.currentTime + i * 0.18;
-      const stop  = start + 0.10;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.18, start + 0.01);
-      gain.gain.linearRampToValueAtTime(0,    stop);
-      osc.start(start);
-      osc.stop(stop + 0.02);
-    }
-
-    // Close the context shortly after the last pulse to free resources
-    setTimeout(() => { ctx.close().catch(() => {}); }, 700);
-  } catch {
-    /* Audio not available — silently ignore */
-  }
-}
-
-/**
- * Speak an emergency alert using the browser's built-in Text-to-Speech engine.
- *
- * We pronounce the type + location ("Fire is detected at Security Desk Main
- * Gate") three times in a row, with a short gap between repetitions. The
- * SpeechSynthesisUtterance queue handles the spacing for us — utterances
- * play sequentially.
- *
- * Browsers gate audio behind a user interaction on first load. If speech is
- * blocked, we silently no-op (same as the beep helper).
- */
-function speakAlert(type: AlertType, location: string) {
-  try {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-    // Cancel any in-flight speech so a fresh alert isn't queued behind an old one
-    window.speechSynthesis.cancel();
-
-    const typeLabel = TYPE_STYLE[type]?.label ?? type;
-    const phrase = `${typeLabel} is detected at ${location}.`;
-
-    // Repeat 3 times — same urgency model as the beep
-    for (let i = 0; i < 3; i++) {
-      const u = new SpeechSynthesisUtterance(phrase);
-      u.lang   = "en-IN";   // Indian English if available, else falls back automatically
-      u.rate   = 0.95;      // very slightly slower than default for clarity
-      u.pitch  = 1.0;
-      u.volume = 1.0;
-      window.speechSynthesis.speak(u);
-    }
-  } catch {
-    /* Speech not available — silently ignore */
-  }
-}
+// NOTE: The audio (beep + voice) logic used to live here. It now lives in
+// `<GlobalAlertWatcher />` so emergencies are announced on every dashboard
+// page, not just /alerts. See src/components/dashboard/global-alert-watcher.tsx.
 
 export default function AlertsPage() {
   const { data: alerts, refresh } = useLive<EmergencyAlert[]>("/api/emergency-alerts",
@@ -120,39 +52,36 @@ export default function AlertsPage() {
     { select: (r) => (r as { items: EmergencySwitch[] }).items, intervalMs: 10000 });
 
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [muted,  setMuted]  = useState(false);
+  // Mute state persists in localStorage so the choice survives reloads and
+  // is shared with the GlobalAlertWatcher (mounted in the dashboard layout).
+  const [muted, setMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem("sentinel-alerts-muted") === "1"; }
+    catch { return false; }
+  });
   // IDs of alerts that are still in the "just arrived" flash window (1.4s).
   const [justArrived, setJustArrived] = useState<Set<string>>(new Set());
-  // IDs we've already seen — so the very first render doesn't beep for every
-  // existing alert on the page.
+  // IDs we've already seen — so the very first render doesn't flash every
+  // existing alert on the page. (The watcher does the same for audio.)
   const seenIdsRef = useRef<Set<string> | null>(null);
 
-  // Detect newly arrived UNACKNOWLEDGED alerts and trigger sound + flash.
-  // This runs on every alerts list change.
+  // Detect newly arrived UNACKNOWLEDGED alerts and trigger ONLY the flash.
+  // Audio (beep + voice) is owned by the GlobalAlertWatcher in the layout so
+  // it fires on every dashboard page, not just this one.
   useEffect(() => {
     if (!alerts) return;
     const currentIds = new Set(alerts.map((a) => a.id));
 
-    // First load — record what we already had, don't beep.
     if (seenIdsRef.current === null) {
       seenIdsRef.current = currentIds;
       return;
     }
 
-    // Find IDs that are new AND not yet acknowledged.
     const newOnes = alerts.filter(
       (a) => !seenIdsRef.current!.has(a.id) && !a.acknowledged
     );
 
     if (newOnes.length > 0) {
-      if (!muted) {
-        playAlarmBeep();
-        // Speak each new alert — typically only 1 at a time, but if a batch
-        // came in we'll narrate them sequentially.
-        for (const a of newOnes) {
-          speakAlert(a.type, a.location);
-        }
-      }
       setJustArrived((prev) => {
         const next = new Set(prev);
         newOnes.forEach((a) => next.add(a.id));
@@ -169,7 +98,15 @@ export default function AlertsPage() {
     }
 
     seenIdsRef.current = currentIds;
-  }, [alerts, muted]);
+  }, [alerts]);
+
+  // Persist mute state + notify the GlobalAlertWatcher whenever it changes.
+  // We use a custom event because `storage` events only fire across tabs.
+  function setMutedAndPersist(next: boolean) {
+    setMuted(next);
+    try { window.localStorage.setItem("sentinel-alerts-muted", next ? "1" : "0"); } catch {}
+    window.dispatchEvent(new CustomEvent("sentinel:mute-changed", { detail: next }));
+  }
 
   // If the user mutes mid-utterance, stop the speech queue immediately so
   // they're not stuck listening to the rest of the loop.
@@ -267,7 +204,7 @@ export default function AlertsPage() {
                   demo alarm is heard. Clicking flips it. */}
               <button
                 type="button"
-                onClick={() => setMuted((m) => !m)}
+                onClick={() => setMutedAndPersist(!muted)}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors",
                   muted
