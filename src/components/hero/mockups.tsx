@@ -17,9 +17,9 @@ export function DashboardMockup() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 mt-4">
-        <MiniStat label="Guards"   value="24" />
-        <MiniStat label="Active"   value="11" tone="success" />
-        <MiniStat label="Devices"  value="8/8" />
+        <MiniStat label="Guards"   value="1" />
+        <MiniStat label="Active"   value="1" tone="success" />
+        <MiniStat label="Devices"  value="2/2" />
         <MiniStat label="Missed"   value="0"  tone="success" />
       </div>
 
@@ -32,19 +32,21 @@ export function DashboardMockup() {
               <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
-          <path d="M0,40 L20,35 L40,38 L60,28 L80,22 L100,18 L120,12 L140,15 L160,8 L180,12 L200,5"
+          {/* A modest, steady patrol pattern reflective of a small deployment
+              (a few scans across the day, not a busy enterprise stream). */}
+          <path d="M0,42 L20,38 L40,40 L60,33 L80,35 L100,28 L120,30 L140,25 L160,28 L180,22 L200,25"
                 fill="none" stroke="var(--color-primary)" strokeWidth="1.5" />
-          <path d="M0,40 L20,35 L40,38 L60,28 L80,22 L100,18 L120,12 L140,15 L160,8 L180,12 L200,5 L200,50 L0,50 Z"
+          <path d="M0,42 L20,38 L40,40 L60,33 L80,35 L100,28 L120,30 L140,25 L160,28 L180,22 L200,25 L200,50 L0,50 Z"
                 fill="url(#mockup-grad)" />
         </svg>
       </div>
 
       <div className="mt-3 space-y-1.5">
         {[
-          { name: "HC-05",        point: "Checkpoint 1", status: "verified" as const, icon: FiCheck },
-          { name: "HC-05",        point: "Checkpoint 1", status: "verified" as const, icon: FiCheck },
-          { name: "GUARD_TAG_01", point: "Checkpoint 1", status: "verified" as const, icon: FiCheck },
-          { name: "NO_DEVICE",    point: "Checkpoint 1", status: "missed"   as const, icon: FiClock },
+          { name: "HC-05",     point: "Main Gate",   status: "verified" as const, icon: FiCheck },
+          { name: "HC-05",     point: "ECE Block",   status: "verified" as const, icon: FiCheck },
+          { name: "HC-05",     point: "Sports",      status: "verified" as const, icon: FiCheck },
+          { name: "NO_DEVICE", point: "MVHR Hostel", status: "missed"   as const, icon: FiClock },
         ].map((r, i) => (
           <div key={i} className="flex items-center gap-2 p-2 rounded bg-white/[0.02] text-[10px]">
             <FiActivity className="h-3 w-3 text-[var(--color-primary)]" />
@@ -83,18 +85,21 @@ function MiniStat({
 }
 
 export function DatabaseMockup() {
+  // Realistic snapshot of the actual schema — keeps the mockup honest with
+  // what Sentinel really stores. Column names use the new logical naming
+  // (the storage layer maps these to the legacy DB columns transparently).
   const tables = [
-    { name: "patrol_events",  cols: ["id", "name", "bluetoothMac", "location", "status", "receivedAt"] },
-    { name: "devices",        cols: ["id", "device_id", "mac_address", "checkpoint_name", "status"] },
-    { name: "guards",         cols: ["id", "guard_code", "name", "shift", "contact"] },
-    { name: "config",         cols: ["missed_tolerance_min", "heartbeat_interval_s", "rssi_threshold"] },
+    { name: "patrol_events",    cols: ["id", "name", "bluetoothMac", "scannerId", "location", "status", "receivedAt"] },
+    { name: "tags",             cols: ["id", "mac_address", "tag_name", "guard_name", "photo_url"] },
+    { name: "scanners",         cols: ["id", "scanner_id", "location", "status", "last_heartbeat"] },
+    { name: "emergency_alerts", cols: ["id", "type", "location", "triggeredAt", "acknowledged"] },
   ];
 
   return (
     <div className="h-full p-5 grid-bg overflow-auto">
       <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
-        <p className="mono text-[10px] text-white/40">json · /data</p>
-        <Badge variant="info" className="ml-auto !py-0">4 files</Badge>
+        <p className="mono text-[10px] text-white/40">postgres · supabase</p>
+        <Badge variant="info" className="ml-auto !py-0">4 tables</Badge>
       </div>
 
       <div className="mt-4 space-y-3">
