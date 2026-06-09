@@ -21,7 +21,7 @@ export default function ReportsPage() {
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 10_000 });
 
   const s  = stats ?? {
-    total_ble_devices: 0, total_scanners: 0, online_scanners: 0,
+    total_tags: 0, total_scanners: 0, online_scanners: 0,
     active_today: 0, missed_checkpoints_today: 0, verified_today: 0,
   };
   const es = events ?? [];

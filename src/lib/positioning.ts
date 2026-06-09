@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // Live guard positioning from RSSI.
 //
-// Inputs: recent patrol events (each has espId + rssi + receivedAt).
-// Output: for each tracked BLE MAC, an estimated (lat, lng) on campus.
+// Inputs: recent patrol events (each has scannerId + rssi + receivedAt).
+// Output: for each tracked Bluetooth MAC, an estimated (lat, lng) on campus.
 //
 // Approach: weighted average of the strongest recent RSSI readings.
 //   • Use only readings from the last STALE_WINDOW_MS milliseconds.
@@ -14,17 +14,17 @@
 // `GuardPosition.source` so the UI can label the marker accurately.
 //
 // Limits (for honest demo framing):
-//   • Resolution is bounded by the number of deployed ESP32s. With 2, all
+//   • Resolution is bounded by the number of deployed Scanners. With 2, all
 //     movement is along the straight line between them.
 //   • RSSI drifts ±5–10 dBm even when stationary — the dot will wobble a few
 //     meters. We average the last AVG_SAMPLES readings per scanner to dampen
 //     this without slowing tracking too much.
 // ---------------------------------------------------------------------------
 
-import type { EspScanner, GuardPosition, PatrolEvent } from "@/types";
+import type { Scanner, GuardPosition, PatrolEvent } from "@/types";
 import { CAMPUS_LOCATIONS } from "@/lib/campus-locations";
 
-/** Discard readings older than this. 30 s = a few BLE scan cycles. */
+/** Discard readings older than this. 30 s = a few Bluetooth scan cycles. */
 const STALE_WINDOW_MS = 30_000;
 
 /** How many recent readings to average per scanner before weighting. */
@@ -63,7 +63,7 @@ function rssiToDistanceMeters(rssi: number): number {
 }
 
 /** Resolve a scanner's coordinates by matching its `location` field. */
-function scannerCoords(scanner: EspScanner): { lat: number; lng: number } | null {
+function scannerCoords(scanner: Scanner): { lat: number; lng: number } | null {
   const match = CAMPUS_LOCATIONS.find(
     (l) => l.name.toLowerCase() === scanner.location.toLowerCase()
   );
@@ -71,7 +71,7 @@ function scannerCoords(scanner: EspScanner): { lat: number; lng: number } | null
 }
 
 /**
- * Aggregate recent events by (mac, espId) → average RSSI of the last N readings.
+ * Aggregate recent events by (mac, scannerId) → average RSSI of the last N readings.
  * Skips events with missing RSSI or that look stale.
  */
 function recentReadingsByMacAndScanner(
@@ -86,21 +86,21 @@ function recentReadingsByMacAndScanner(
     if (e.bluetoothMac === "n/a") continue;
     const age = now - new Date(e.receivedAt).getTime();
     if (age > STALE_WINDOW_MS) continue;
-    if (!e.espId) continue;
+    if (!e.scannerId) continue;
 
     let perScanner = byMac.get(e.bluetoothMac);
     if (!perScanner) {
       perScanner = new Map();
       byMac.set(e.bluetoothMac, perScanner);
     }
-    let readings = perScanner.get(e.espId);
+    let readings = perScanner.get(e.scannerId);
     if (!readings) {
       readings = [];
-      perScanner.set(e.espId, readings);
+      perScanner.set(e.scannerId, readings);
     }
     if (readings.length < AVG_SAMPLES) readings.push(e.rssi);
 
-    const key = `${e.bluetoothMac}|${e.espId}`;
+    const key = `${e.bluetoothMac}|${e.scannerId}`;
     const prev = latestByPair.get(key) ?? 0;
     if (new Date(e.receivedAt).getTime() > prev) {
       latestByPair.set(key, new Date(e.receivedAt).getTime());
@@ -110,11 +110,11 @@ function recentReadingsByMacAndScanner(
   const out = new Map<string, Map<string, { avgRssi: number; latestAt: number; samples: number }>>();
   for (const [mac, perScanner] of byMac) {
     const m = new Map<string, { avgRssi: number; latestAt: number; samples: number }>();
-    for (const [espId, samples] of perScanner) {
+    for (const [scannerId, samples] of perScanner) {
       const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
-      m.set(espId, {
+      m.set(scannerId, {
         avgRssi: avg,
-        latestAt: latestByPair.get(`${mac}|${espId}`) ?? 0,
+        latestAt: latestByPair.get(`${mac}|${scannerId}`) ?? 0,
         samples: samples.length,
       });
     }
@@ -135,7 +135,7 @@ function recentReadingsByMacAndScanner(
  */
 export function computeGuardPositions(
   events: PatrolEvent[],
-  scanners: EspScanner[],
+  scanners: Scanner[],
   bleNames: Map<string, { name: string; guardName?: string }>,
 ): GuardPosition[] {
   const now = Date.now();
@@ -145,7 +145,7 @@ export function computeGuardPositions(
   for (const [mac, perScanner] of recent) {
     // Build a list of (scanner, coords, weight, info) for this guard.
     const contribs: Array<{
-      espId: string;
+      scannerId: string;
       coords: { lat: number; lng: number };
       weight: number;
       rssi: number;
@@ -153,13 +153,13 @@ export function computeGuardPositions(
       ageSeconds: number;
     }> = [];
 
-    for (const [espId, { avgRssi, latestAt }] of perScanner) {
-      const scanner = scanners.find((s) => s.esp_id === espId);
+    for (const [scannerId, { avgRssi, latestAt }] of perScanner) {
+      const scanner = scanners.find((s) => s.scanner_id === scannerId);
       if (!scanner) continue;                     // unregistered scanner
       const coords = scannerCoords(scanner);
       if (!coords) continue;                      // location name doesn't match a campus pin
       contribs.push({
-        espId,
+        scannerId,
         coords,
         weight: rssiToWeight(avgRssi),
         rssi: avgRssi,
@@ -190,7 +190,7 @@ export function computeGuardPositions(
       computedAt:  new Date(now).toISOString(),
       source:      contribs.length === 1 ? "snap" : "interpolated",
       sample: contribs.map((c) => ({
-        espId: c.espId,
+        scannerId: c.scannerId,
         rssi:  Math.round(c.rssi),
         location: c.location,
         ageSeconds: c.ageSeconds,

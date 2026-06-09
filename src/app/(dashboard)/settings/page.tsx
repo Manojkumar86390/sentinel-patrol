@@ -49,8 +49,8 @@ export default function SettingsPage() {
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-white">Thresholds &amp; Polling</h3>
                   <p className="text-xs text-[var(--color-muted)]">
-                    Stored in <code className="mono">data/config.json</code>. BLE devices and
-                    ESP32 scanners are managed under <strong className="text-white">Devices</strong>.
+                    Stored in <code className="mono">data/config.json</code>. Bluetooth tags and
+                    Scanners are managed under <strong className="text-white">Devices</strong>.
                   </p>
                 </div>
 
@@ -87,7 +87,7 @@ export default function SettingsPage() {
                 />
 
                 <Slider
-                  label="BLE RSSI threshold (closer = stronger signal required)"
+                  label="Bluetooth RSSI threshold (closer = stronger signal required)"
                   value={cfg.rssi_threshold}
                   onChange={(v) => setCfg({ ...cfg, rssi_threshold: v })}
                   min={-100} max={-30}

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  let body: Partial<PatrolRoute> & { assignments?: Array<{ ble_mac: string; days_of_week?: string }> };
+  let body: Partial<PatrolRoute> & { assignments?: Array<{ tag_mac: string; days_of_week?: string }> };
   try { body = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 }); }
 
@@ -58,8 +58,8 @@ export async function POST(req: Request) {
     }
     config = {
       schedule: c.schedule
-        .map((s) => ({ time: String(s.time).trim(), espId: String(s.espId).trim() }))
-        .filter((s) => s.time && s.espId),
+        .map((s) => ({ time: String(s.time).trim(), scannerId: String(s.scannerId).trim() }))
+        .filter((s) => s.time && s.scannerId),
     };
   }
 
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   const assignmentRows: RouteAssignment[] = (body.assignments ?? []).map((a) => ({
     id:           `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     route_id:     route.id,
-    ble_mac:      a.ble_mac.toUpperCase(),
+    tag_mac:      a.tag_mac.toUpperCase(),
     days_of_week: (a.days_of_week && /^[01]{7}$/.test(a.days_of_week)) ? a.days_of_week : "1111111",
     created_at:   new Date().toISOString(),
   }));

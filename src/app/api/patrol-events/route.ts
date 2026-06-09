@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
 // /api/patrol-events
 //   GET  – list recent events (newest first). Requires login.
-//   POST – ESP32 firmware POSTs a scan here. No login required.
+//   POST – Scanner firmware POSTs a scan here. No login required.
 //   DELETE – wipe all events. Requires login.
 //
 // Resolution logic when a POST arrives:
-//   1) Look up the BLE MAC in ble-devices.json
-//        → resolves the friendly guard_name and ble_name
-//   2) Look up the espId in esp32-scanners.json
+//   1) Look up the Bluetooth MAC in ble-devices.json
+//        → resolves the friendly guard_name and tag_name
+//   2) Look up the scannerId in esp32-scanners.json
 //        → resolves the location and updates last_heartbeat
 //   3) Status:
 //        - If MAC is "n/a"      → "Missed" (no tag in range)
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
         (e.guardName ?? "").toLowerCase().includes(q) ||
         e.location.toLowerCase().includes(q) ||
         e.bluetoothMac.toLowerCase().includes(q) ||
-        e.espId.toLowerCase().includes(q)
+        e.scannerId.toLowerCase().includes(q)
     );
   }
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { name?: string; bluetoothMac?: string; espId?: string; rssi?: number };
+  let body: { name?: string; bluetoothMac?: string; scannerId?: string; rssi?: number };
   try {
     body = await req.json();
   } catch {
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
 
   const rawName = (body.name ?? "").trim() || "NO_DEVICE";
   const macLow  = (body.bluetoothMac ?? "").trim().toLowerCase() || "n/a";
-  const espId   = (body.espId ?? "ESP32-UNKNOWN").trim();
+  const scannerId   = (body.scannerId ?? "SCANNER-UNKNOWN").trim();
   // RSSI is a signed integer in dBm. Negative for real readings; 0 = unknown.
   // We only store it when present and non-zero (preserves backward compat with
   // older firmware versions that don't send it at all).
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 
   // 1) Resolve scanner → location + heartbeat
   const scanners = await db.scanners.all();
-  const scanner  = scanners.find((s) => s.esp_id === espId);
+  const scanner  = scanners.find((s) => s.scanner_id === scannerId);
 
   let location = "Unknown";
   if (scanner) {
@@ -95,10 +95,10 @@ export async function POST(req: Request) {
     await db.scanners.save(scanners);
   }
 
-  // 2) Resolve BLE device → friendly name
-  const bleDevices = await db.bleDevices.all();
+  // 2) Resolve Bluetooth tag → friendly name
+  const tags = await db.tags.all();
   const matchedBle = macLow !== "n/a"
-    ? bleDevices.find((d) => d.mac_address.toLowerCase() === macLow)
+    ? tags.find((d) => d.mac_address.toLowerCase() === macLow)
     : undefined;
 
   const guardName = matchedBle?.guard_name;
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     name: rawName,
     bluetoothMac: macLow === "n/a" ? "n/a" : macLow,
     guardName,
-    espId,
+    scannerId,
     location,
     date: now.toISOString().slice(0, 10),
     time: now.toTimeString().slice(0, 8),

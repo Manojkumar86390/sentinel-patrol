@@ -18,9 +18,9 @@ type Trend = "approaching" | "leaving" | "stable";
 
 interface TickerEntry {
   mac: string;
-  guard: string;          // Display name (guardName ?? bleName)
+  guard: string;          // Display name (guardName ?? tagName)
   nearestLocation: string;
-  nearestEspId: string;
+  nearestScannerId: string;
   rssi: number;           // strongest current RSSI
   distance: number;       // estimated meters from nearest scanner
   trend: Trend;
@@ -71,7 +71,7 @@ export function LiveTicker({ positions }: Props) {
         mac: p.mac,
         guard: p.guardName ?? p.name,
         nearestLocation: strongest.location,
-        nearestEspId: strongest.espId,
+        nearestScannerId: strongest.scannerId,
         rssi: strongest.rssi,
         distance: rssiToMeters(strongest.rssi),
         trend,
@@ -87,7 +87,7 @@ export function LiveTicker({ positions }: Props) {
   if (entries.length === 0) {
     return (
       <div className="mt-4 rounded-lg border border-white/[0.06] bg-black/40 px-4 py-3 text-xs text-[var(--color-muted)]">
-        <span className="mono">[LIVE]</span> waiting for guard detections — power on the BLE wristband and walk near an ESP32 to begin tracking.
+        <span className="mono">[LIVE]</span> waiting for guard detections — power on the Bluetooth wristband and walk near a Scanner to begin tracking.
       </div>
     );
   }
@@ -154,7 +154,7 @@ function TickerItem({ entry }: { entry: TickerEntry }) {
       <span className={trendColor + " font-medium"}>{trendIcon} {trendLabel}</span>
       <span className="text-white">{entry.nearestLocation}</span>
       <span className="mono text-[10px] text-[var(--color-muted)]">
-        {entry.rssi} dBm · ~{entry.distance.toFixed(1)} m · {entry.nearestEspId}
+        {entry.rssi} dBm · ~{entry.distance.toFixed(1)} m · {entry.nearestScannerId}
       </span>
       <span className="text-white/20 ml-2">|</span>
     </span>

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // /api/last-scan-positions
 //
-// Reads recent patrol events and, for each BLE MAC seen in the last
+// Reads recent patrol events and, for each Bluetooth MAC seen in the last
 // MAX_AGE_MIN minutes, returns its MOST RECENT detection — anchored to the
 // scanner's registered location coordinates.
 //
@@ -55,18 +55,18 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
   }
 
-  const [events, scanners, bleDevices] = await Promise.all([
+  const [events, scanners, tags] = await Promise.all([
     db.events.all(),
     db.scanners.all(),
-    db.bleDevices.all(),
+    db.tags.all(),
   ]);
 
   // Lookup tables for fast resolution.
-  const scannerByEspId = new Map(scanners.map((s) => [s.esp_id, s] as const));
+  const scannerByEspId = new Map(scanners.map((s) => [s.scanner_id, s] as const));
   const bleByMac = new Map<string, { name: string; guardName?: string }>();
-  for (const d of bleDevices) {
+  for (const d of tags) {
     bleByMac.set(d.mac_address.toLowerCase(), {
-      name:      d.ble_name,
+      name:      d.tag_name,
       guardName: d.guard_name,
     });
   }
@@ -94,7 +94,7 @@ export async function GET() {
     if (t < cutoffMs) continue;                    // too old, hide
 
     // Find the scanner that produced this event, then its checkpoint coords.
-    const scanner = scannerByEspId.get(ev.espId);
+    const scanner = scannerByEspId.get(ev.scannerId);
     if (!scanner) continue;                        // unregistered scanner
     const pin = CAMPUS_LOCATIONS.find(
       (p) => p.name.toLowerCase() === scanner.location.toLowerCase(),
@@ -118,7 +118,7 @@ export async function GET() {
       source:     "snap",                          // explicitly snap-to-scanner
       sample: [
         {
-          espId:      ev.espId,
+          scannerId:      ev.scannerId,
           rssi:       ev.rssi ?? 0,
           location:   scanner.location,
           ageSeconds: ageSec,

@@ -10,7 +10,7 @@ import { useLive } from "@/hooks/use-live";
 import { timeAgo, cn } from "@/lib/utils";
 import { FiCpu, FiRadio, FiClock, FiActivity, FiMapPin, FiPlay, FiSquare } from "react-icons/fi";
 import { generateDemoPositions } from "@/lib/demo-mode";
-import type { PatrolEvent, EspScanner, GuardPosition } from "@/types";
+import type { PatrolEvent, Scanner, GuardPosition } from "@/types";
 
 // Live news-ticker showing one scrolling line per detected guard.
 import { LiveTicker } from "@/components/dashboard/live-ticker";
@@ -55,8 +55,8 @@ function LivePageInner() {
   // demo flow doesn't break.
   const [positionMode, setPositionMode] = useState<"rssi" | "last-scan">("rssi");
 
-  const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners",
-    { select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 5000 });
+  const { data: scanners } = useLive<Scanner[]>("/api/esp32-scanners",
+    { select: (r) => (r as { items: Scanner[] }).items, intervalMs: 5000 });
   const { data: events }   = useLive<PatrolEvent[]>("/api/patrol-events?limit=100",
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 3000 });
   // ONE live hook that swaps the URL when the mode changes. useLive treats the
@@ -85,7 +85,7 @@ function LivePageInner() {
 
   return (
     <>
-      <Topbar title="Live Status" subtitle="Real-time ESP32 patrol stream · auto-refresh every 3s" />
+      <Topbar title="Live Status" subtitle="Real-time Scanner patrol stream · auto-refresh every 3s" />
 
       <main className="px-4 sm:px-8 py-6 space-y-6">
         {/* Live map of campus */}
@@ -113,7 +113,7 @@ function LivePageInner() {
                     ? `Each guard pinned to their last detection (within the last 30 min)`
                     : (onlineCount > 0
                         ? `${onlineCount} of ${ss.length} scanner${ss.length === 1 ? "" : "s"} online`
-                        : "Waiting for ESP32 heartbeats")}
+                        : "Waiting for Scanner heartbeats")}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -188,7 +188,7 @@ function LivePageInner() {
 
             <p className="mt-3 text-[10px] text-[var(--color-muted)]">
               💡 Each marker links to a registered scanner by matching its <strong>location</strong> field.
-              To map a scanner to a pin, register it under <span className="text-white">Devices → ESP32 Scanners</span> with
+              To map a scanner to a pin, register it under <span className="text-white">Devices → Scanners</span> with
               a location name matching one of: <code className="mono text-[var(--color-primary)]">Main Gate</code>,{" "}
               <code className="mono text-[var(--color-primary)]">ECE Block</code>,{" "}
               <code className="mono text-[var(--color-primary)]">Sports</code>,{" "}
@@ -220,13 +220,13 @@ function LivePageInner() {
           </h3>
           {ss.length === 0 ? (
             <Card className="p-8 text-center text-sm text-[var(--color-muted)]">
-              No scanners registered. Add one in <span className="text-white">Devices → ESP32 Scanners</span>.
+              No scanners registered. Add one in <span className="text-white">Devices → Scanners</span>.
             </Card>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {ss.map((s) => {
                 const online = s.status === "online";
-                const lastAtLocation = es.find((e) => e.espId === s.esp_id);
+                const lastAtLocation = es.find((e) => e.scannerId === s.scanner_id);
                 return (
                   <Card
                     key={s.id}
@@ -245,7 +245,7 @@ function LivePageInner() {
                         <FiCpu className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs mono text-[var(--color-muted)] truncate">{s.esp_id}</p>
+                        <p className="text-xs mono text-[var(--color-muted)] truncate">{s.scanner_id}</p>
                         <p className="text-sm font-semibold text-white truncate">{s.location}</p>
                       </div>
                       <PulseDot className={online ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"} />

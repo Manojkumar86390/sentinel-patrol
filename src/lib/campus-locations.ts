@@ -2,7 +2,7 @@
 // Campus checkpoint coordinates (IIITDM Kurnool).
 //
 // Each location name here MUST match exactly what you enter in the
-// "Location" field when registering an ESP32 scanner under Devices.
+// "Location" field when registering a Scanner under Devices.
 // The live map auto-resolves: scanner registered at "Main Gate" -> Main Gate
 // pin lights up green (online) or red (offline). Unmapped scanners just appear
 // in the list below the map; unscanned pins appear grey.

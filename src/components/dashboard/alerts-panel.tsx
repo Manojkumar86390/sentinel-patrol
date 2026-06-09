@@ -2,10 +2,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 import { FiAlertTriangle, FiWifiOff } from "react-icons/fi";
-import type { EspScanner, PatrolEvent } from "@/types";
+import type { Scanner, PatrolEvent } from "@/types";
 
 interface Props {
-  scanners: EspScanner[];
+  scanners: Scanner[];
   events: PatrolEvent[];
 }
 
@@ -17,7 +17,7 @@ export function AlertsPanel({ scanners, events }: Props) {
     ...offline.map((s) => ({
       id: `off-${s.id}`,
       icon: FiWifiOff,
-      title: `${s.esp_id} offline`,
+      title: `${s.scanner_id} offline`,
       detail: s.location,
       time: timeAgo(s.last_heartbeat),
       severity: "danger" as const,
@@ -26,7 +26,7 @@ export function AlertsPanel({ scanners, events }: Props) {
       id: `miss-${e.id}`,
       icon: FiAlertTriangle,
       title: `Missed scan at ${e.location}`,
-      detail: e.espId,
+      detail: e.scannerId,
       time: timeAgo(e.receivedAt),
       severity: "warning" as const,
     })),

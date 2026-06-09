@@ -13,7 +13,7 @@ import {
   FiCheck, FiMapPin, FiCpu, FiClock, FiTrash2,
   FiVolume2, FiVolumeX,
 } from "react-icons/fi";
-import type { AlertType, EmergencyAlert, EmergencySwitch, EspScanner } from "@/types";
+import type { AlertType, EmergencyAlert, EmergencySwitch, Scanner } from "@/types";
 
 // The alerts map embeds Leaflet, which depends on `window`. Lazy-loaded
 // client-side to keep SSR clean.
@@ -46,8 +46,8 @@ export default function AlertsPage() {
     { select: (r) => (r as { items: EmergencyAlert[] }).items, intervalMs: 3000 });
   // Background context for the map — these don't change frequently, so we
   // poll slowly (every 10s).
-  const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners",
-    { select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 10000 });
+  const { data: scanners } = useLive<Scanner[]>("/api/esp32-scanners",
+    { select: (r) => (r as { items: Scanner[] }).items, intervalMs: 10000 });
   const { data: switches } = useLive<EmergencySwitch[]>("/api/emergency-switches",
     { select: (r) => (r as { items: EmergencySwitch[] }).items, intervalMs: 10000 });
 
@@ -310,7 +310,7 @@ function ActiveAlertCard({
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <FiCpu className="h-3 w-3 text-[var(--color-muted)] shrink-0" />
-                <span className="mono text-[var(--color-muted)]">{alert.espId}</span>
+                <span className="mono text-[var(--color-muted)]">{alert.scannerId}</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <FiClock className="h-3 w-3 text-[var(--color-muted)] shrink-0" />
@@ -368,7 +368,7 @@ function HistoryRow({
         </div>
         <p className="text-xs text-[var(--color-muted)] mt-0.5">
           <span className="text-white">{alert.location}</span>
-          {" · "}<span className="mono">{alert.espId}</span>
+          {" · "}<span className="mono">{alert.scannerId}</span>
           {" · "}<span className="mono">{alert.date} {alert.time}</span>
         </p>
         {alert.acknowledgedAt && (

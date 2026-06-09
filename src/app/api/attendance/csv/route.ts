@@ -24,11 +24,11 @@ export async function GET(req: Request) {
   const url  = new URL(req.url);
   const type = url.searchParams.get("type") ?? "matrix";
 
-  const [bleDevices, events] = await Promise.all([
-    db.bleDevices.all(),
+  const [tags, events] = await Promise.all([
+    db.tags.all(),
     db.events.all(),
   ]);
-  const { dates, guards } = buildAttendance(bleDevices, events, 30);
+  const { dates, guards } = buildAttendance(tags, events, 30);
 
   let csv = "";
   let filename = "attendance.csv";

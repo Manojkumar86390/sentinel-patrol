@@ -15,7 +15,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const { id } = await ctx.params;
-  const body: Partial<PatrolRoute> & { assignments?: Array<{ ble_mac: string; days_of_week?: string }> }
+  const body: Partial<PatrolRoute> & { assignments?: Array<{ tag_mac: string; days_of_week?: string }> }
     = await req.json().catch(() => ({}));
 
   const all = await db.routes.all();
@@ -49,7 +49,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     const rows: RouteAssignment[] = body.assignments.map((a) => ({
       id:           `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       route_id:     id,
-      ble_mac:      a.ble_mac.toUpperCase(),
+      tag_mac:      a.tag_mac.toUpperCase(),
       days_of_week: (a.days_of_week && /^[01]{7}$/.test(a.days_of_week)) ? a.days_of_week : "1111111",
       created_at:   new Date().toISOString(),
     }));

@@ -8,25 +8,25 @@ import { AlertsPanel } from "@/components/dashboard/alerts-panel";
 import { AnalyticsChart } from "@/components/dashboard/analytics-chart";
 import { useLive } from "@/hooks/use-live";
 import { FiTag, FiActivity, FiCpu, FiAlertTriangle } from "react-icons/fi";
-import type { PatrolEvent, EspScanner, DashboardStats } from "@/types";
+import type { PatrolEvent, Scanner, DashboardStats } from "@/types";
 
 export default function DashboardPage() {
   const { data: stats }    = useLive<DashboardStats>("/api/dashboard-stats",
     { select: (r) => (r as { stats: DashboardStats }).stats });
   const { data: events }   = useLive<PatrolEvent[]>("/api/patrol-events?limit=15",
     { select: (r) => (r as { items: PatrolEvent[] }).items });
-  const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners",
-    { select: (r) => (r as { items: EspScanner[] }).items });
+  const { data: scanners } = useLive<Scanner[]>("/api/esp32-scanners",
+    { select: (r) => (r as { items: Scanner[] }).items });
 
   const s = stats ?? {
-    total_ble_devices: 0, total_scanners: 0, online_scanners: 0,
+    total_tags: 0, total_scanners: 0, online_scanners: 0,
     active_today: 0, missed_checkpoints_today: 0, verified_today: 0,
     active_alerts: 0,
   };
 
   return (
     <>
-      <Topbar title="Dashboard" subtitle="Live ESP32 patrol stream · auto-refresh every 5s" />
+      <Topbar title="Dashboard" subtitle="Live Scanner patrol stream · auto-refresh every 5s" />
 
       <main className="px-4 sm:px-8 py-6 space-y-6">
         {s.active_alerts > 0 && (
@@ -48,7 +48,7 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard label="BLE Tags"        value={s.total_ble_devices} icon={FiTag} />
+          <StatsCard label="Bluetooth Tags"        value={s.total_tags} icon={FiTag} />
           <StatsCard label="Active Today"    value={s.active_today}      icon={FiActivity} tone="success" />
           <StatsCard label="Online Scanners" value={`${s.online_scanners}/${s.total_scanners}`}
                      icon={FiCpu}

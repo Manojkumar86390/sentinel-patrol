@@ -29,7 +29,7 @@ const monitoringLinks = [
 ];
 
 const managementLinks = [
-  { text: "Devices (BLE + ESP32)", href: "/devices" },
+  { text: "Devices (Bluetooth)", href: "/devices" },
   { text: "Settings",              href: "/settings" },
   { text: "Admin Login",           href: "/login" },
 ];
@@ -38,7 +38,7 @@ const managementLinks = [
 // layout is stable when you add it.
 const resourcesLinks = [
   { text: "Project Documentation", href: "#" },     // replace # with your Drive link
-  { text: "ESP32 Firmware",        href: "#" },
+  { text: "Scanner Firmware",        href: "#" },
 ];
 
 const contactInfo = [
@@ -65,7 +65,7 @@ export function Footer() {
             </Link>
 
             <p className="text-[var(--color-muted)] mt-5 max-w-md text-sm leading-relaxed">
-              Real-time BLE + ESP32 security patrol monitoring. Built for college campuses,
+              Real-time Bluetooth security patrol monitoring. Built for college campuses,
               office buildings, and industrial facilities that need verified checkpoint coverage.
             </p>
 
@@ -109,7 +109,7 @@ export function Footer() {
         {/* bottom row */}
         <div className="mt-6 pt-5 border-t border-white/[0.04] flex flex-col sm:flex-row gap-3 items-center justify-between text-xs text-[var(--color-muted)]">
           <p>© {new Date().getFullYear()} Sentinel · Patrol Ops. All rights reserved.</p>
-          <p className="mono">v0.2.0 · ESP32 firmware compatible</p>
+          <p className="mono">v0.2.0 · Scanner firmware compatible</p>
         </div>
       </div>
     </footer>

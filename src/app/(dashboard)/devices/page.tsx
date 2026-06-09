@@ -9,11 +9,11 @@ import { Badge, PulseDot } from "@/components/ui/badge";
 import { useLive } from "@/hooks/use-live";
 import { timeAgo, cn } from "@/lib/utils";
 import { FiPlus, FiTrash2, FiSearch, FiCpu, FiTag, FiAlertOctagon, FiX } from "react-icons/fi";
-import type { BleDevice, EspScanner, EmergencySwitch } from "@/types";
+import type { Tag, Scanner, EmergencySwitch } from "@/types";
 
 const TABS = [
-  { id: "ble",     label: "BLE Devices",        icon: FiTag },
-  { id: "esp32",   label: "ESP32 Scanners",     icon: FiCpu },
+  { id: "ble",     label: "Bluetooth Tags",        icon: FiTag },
+  { id: "esp32",   label: "Scanners",     icon: FiCpu },
   { id: "switch",  label: "Emergency Switches", icon: FiAlertOctagon },
 ] as const;
 
@@ -24,7 +24,7 @@ export default function DevicesPage() {
 
   return (
     <>
-      <Topbar title="Devices" subtitle="BLE tags · ESP32 scanners · Emergency switches" />
+      <Topbar title="Devices" subtitle="Bluetooth tags · Scanners · Emergency switches" />
 
       <main className="px-4 sm:px-8 py-6 space-y-4">
         <Card>
@@ -47,8 +47,8 @@ export default function DevicesPage() {
           </div>
 
           <CardContent className="pt-5">
-            {tab === "ble"    && <BleDevicesTab />}
-            {tab === "esp32"  && <EspScannersTab />}
+            {tab === "ble"    && <TagsTab />}
+            {tab === "esp32"  && <ScannersTab />}
             {tab === "switch" && <EmergencySwitchesTab />}
           </CardContent>
         </Card>
@@ -58,12 +58,12 @@ export default function DevicesPage() {
 }
 
 // ---------------------------------------------------------------------------
-// BLE Devices
+// Bluetooth Tags
 // ---------------------------------------------------------------------------
 
-function BleDevicesTab() {
-  const { data: devices, refresh } = useLive<BleDevice[]>("/api/ble-devices",
-    { select: (r) => (r as { items: BleDevice[] }).items });
+function TagsTab() {
+  const { data: devices, refresh } = useLive<Tag[]>("/api/ble-devices",
+    { select: (r) => (r as { items: Tag[] }).items });
 
   const [query,   setQuery]   = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -72,7 +72,7 @@ function BleDevicesTab() {
 
   const all = devices ?? [];
   const filtered = all.filter((d) =>
-    [d.ble_name, d.guard_name, d.mac_address, d.notes]
+    [d.tag_name, d.guard_name, d.mac_address, d.notes]
       .filter(Boolean)
       .join(" ").toLowerCase().includes(query.toLowerCase())
   );
@@ -106,10 +106,10 @@ function BleDevicesTab() {
       }
     }
 
-    // Step 2 — register the BLE device, including the photo_url if any.
+    // Step 2 — register the Bluetooth tag, including the photo_url if any.
     const payload = {
       mac_address: String(fd.get("mac_address") ?? "").trim(),
-      ble_name:    String(fd.get("ble_name") ?? "").trim(),
+      tag_name:    String(fd.get("tag_name") ?? "").trim(),
       guard_name:  String(fd.get("guard_name") ?? "").trim(),
       photo_url:   photoUrl,
       notes:       String(fd.get("notes") ?? "").trim(),
@@ -134,7 +134,7 @@ function BleDevicesTab() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Remove this BLE device?")) return;
+    if (!confirm("Remove this Bluetooth tag?")) return;
     await fetch(`/api/ble-devices/${id}`, { method: "DELETE" });
     await refresh();
   }
@@ -145,7 +145,7 @@ function BleDevicesTab() {
         <div className="relative flex-1">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted)]" />
           <Input
-            placeholder="Search by MAC, BLE name, or guard…"
+            placeholder="Search by MAC, Bluetooth name, or guard…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -154,22 +154,22 @@ function BleDevicesTab() {
         <Button onClick={() => setShowAdd((v) => !v)}>
           {showAdd
             ? <><FiX className="h-4 w-4" /> Cancel</>
-            : <><FiPlus className="h-4 w-4" /> Register BLE Device</>}
+            : <><FiPlus className="h-4 w-4" /> Register Bluetooth Tag</>}
         </Button>
       </div>
 
       {showAdd && (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
           <p className="text-sm text-[var(--color-muted)] mb-4">
-            Add a BLE tag (e.g. HC-05) that guards will carry. Locations are not stored here —
-            they come from whichever ESP32 scanner detects the tag.
+            Add a Bluetooth tag (e.g. HC-05) that guards will carry. Locations are not stored here —
+            they come from whichever Scanner detects the tag.
           </p>
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-3">
             <Field label="Bluetooth MAC">
               <Input name="mac_address" required placeholder="44:A7:36:85:CB:22" />
             </Field>
-            <Field label="BLE Name (as broadcast)">
-              <Input name="ble_name" required placeholder="HC-05" />
+            <Field label="Bluetooth Name (as broadcast)">
+              <Input name="tag_name" required placeholder="HC-05" />
             </Field>
             <Field label="Guard Name (optional)">
               <Input name="guard_name" placeholder="Rajesh / Night Guard A" />
@@ -203,7 +203,7 @@ function BleDevicesTab() {
           <thead>
             <tr className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)] bg-white/[0.02]">
               <th className="text-left font-medium py-2.5 px-4">MAC</th>
-              <th className="text-left font-medium py-2.5 px-4">BLE Name</th>
+              <th className="text-left font-medium py-2.5 px-4">Bluetooth Name</th>
               <th className="text-left font-medium py-2.5 px-4">Guard</th>
               <th className="text-left font-medium py-2.5 px-4">Notes</th>
               <th className="text-right font-medium py-2.5 px-4"></th>
@@ -211,12 +211,12 @@ function BleDevicesTab() {
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={5} className="text-center py-8 text-sm text-[var(--color-muted)]">No BLE devices yet — register one above.</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-sm text-[var(--color-muted)]">No Bluetooth tags yet — register one above.</td></tr>
             )}
             {filtered.map((d) => (
               <tr key={d.id} className="border-t border-white/[0.04]">
                 <td className="py-2.5 px-4 mono text-xs text-white">{d.mac_address}</td>
-                <td className="py-2.5 px-4 text-white">{d.ble_name}</td>
+                <td className="py-2.5 px-4 text-white">{d.tag_name}</td>
                 <td className="py-2.5 px-4 text-[var(--color-muted)]">{d.guard_name ?? "—"}</td>
                 <td className="py-2.5 px-4 text-xs text-[var(--color-muted)]">{d.notes ?? "—"}</td>
                 <td className="py-2.5 px-4 text-right">
@@ -238,12 +238,12 @@ function BleDevicesTab() {
 }
 
 // ---------------------------------------------------------------------------
-// ESP32 Scanners
+// Scanners
 // ---------------------------------------------------------------------------
 
-function EspScannersTab() {
-  const { data: scanners, refresh } = useLive<EspScanner[]>("/api/esp32-scanners",
-    { select: (r) => (r as { items: EspScanner[] }).items });
+function ScannersTab() {
+  const { data: scanners, refresh } = useLive<Scanner[]>("/api/esp32-scanners",
+    { select: (r) => (r as { items: Scanner[] }).items });
 
   const [query,   setQuery]   = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -252,7 +252,7 @@ function EspScannersTab() {
 
   const all = scanners ?? [];
   const filtered = all.filter((s) =>
-    [s.esp_id, s.location, s.description].filter(Boolean).join(" ").toLowerCase().includes(query.toLowerCase())
+    [s.scanner_id, s.location, s.description].filter(Boolean).join(" ").toLowerCase().includes(query.toLowerCase())
   );
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
@@ -261,7 +261,7 @@ function EspScannersTab() {
     setBusy(true);
     const fd = new FormData(e.currentTarget);
     const payload = {
-      esp_id:      String(fd.get("esp_id") ?? "").trim(),
+      scanner_id:      String(fd.get("scanner_id") ?? "").trim(),
       location:    String(fd.get("location") ?? "").trim(),
       description: String(fd.get("description") ?? "").trim(),
     };
@@ -296,7 +296,7 @@ function EspScannersTab() {
         <div className="relative flex-1">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted)]" />
           <Input
-            placeholder="Search by ESP ID, location…"
+            placeholder="Search by Scanner ID, location…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -305,20 +305,20 @@ function EspScannersTab() {
         <Button onClick={() => setShowAdd((v) => !v)}>
           {showAdd
             ? <><FiX className="h-4 w-4" /> Cancel</>
-            : <><FiPlus className="h-4 w-4" /> Register ESP32</>}
+            : <><FiPlus className="h-4 w-4" /> Register Scanner</>}
         </Button>
       </div>
 
       {showAdd && (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
           <p className="text-sm text-[var(--color-muted)] mb-4">
-            Add an ESP32 scanner mounted at a fixed checkpoint. The <strong className="text-white">ESP ID</strong> must
-            match the <code className="mono text-[var(--color-primary)]">ESP_ID</code> hard-coded in the firmware
-            (e.g. <code className="mono text-[var(--color-primary)]">ESP32-SCANNER-01</code>).
+            Add a Scanner mounted at a fixed checkpoint. The <strong className="text-white">Scanner ID</strong> must
+            match the <code className="mono text-[var(--color-primary)]">SCANNER_ID</code> hard-coded in the firmware
+            (e.g. <code className="mono text-[var(--color-primary)]">SCANNER-01</code>).
           </p>
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-3">
-            <Field label="ESP ID (matches firmware)">
-              <Input name="esp_id" required placeholder="ESP32-SCANNER-01" />
+            <Field label="Scanner ID (matches firmware)">
+              <Input name="scanner_id" required placeholder="SCANNER-01" />
             </Field>
             <Field label="Location / Checkpoint">
               <Input name="location" required placeholder="Hostel Gate" />
@@ -338,7 +338,7 @@ function EspScannersTab() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)] bg-white/[0.02]">
-              <th className="text-left font-medium py-2.5 px-4">ESP ID</th>
+              <th className="text-left font-medium py-2.5 px-4">Scanner ID</th>
               <th className="text-left font-medium py-2.5 px-4">Location</th>
               <th className="text-left font-medium py-2.5 px-4">Description</th>
               <th className="text-left font-medium py-2.5 px-4">Last Heartbeat</th>
@@ -352,7 +352,7 @@ function EspScannersTab() {
             )}
             {filtered.map((s) => (
               <tr key={s.id} className="border-t border-white/[0.04]">
-                <td className="py-2.5 px-4 mono text-xs text-white">{s.esp_id}</td>
+                <td className="py-2.5 px-4 mono text-xs text-white">{s.scanner_id}</td>
                 <td className="py-2.5 px-4 text-white">{s.location}</td>
                 <td className="py-2.5 px-4 text-xs text-[var(--color-muted)]">{s.description ?? "—"}</td>
                 <td className="py-2.5 px-4 mono text-xs text-[var(--color-muted)]">{timeAgo(s.last_heartbeat)}</td>
@@ -457,10 +457,10 @@ function EmergencySwitchesTab() {
       {showAdd && (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">
           <p className="text-sm text-[var(--color-muted)] mb-4">
-            An <strong className="text-white">Emergency Switch</strong> is a separate ESP32 with 4 panic
+            An <strong className="text-white">Emergency Switch</strong> is a separate Scanner module with 4 panic
             buttons (fire / accident / bleeding / fight), kept at the security guard&rsquo;s desk.
             The <strong className="text-white">Switch ID</strong> must match the <code className="mono text-[var(--color-primary)]">SWITCH_ID</code> in
-            the firmware (e.g. <code className="mono text-[var(--color-primary)]">ESP32-SWITCH-01</code>).
+            the firmware (e.g. <code className="mono text-[var(--color-primary)]">SWITCH-01</code>).
             Location is free-form text and is shown on alerts.
             <br/>
             <strong className="text-white">Latitude &amp; Longitude</strong> are used to pin the switch on the alerts map.
@@ -469,7 +469,7 @@ function EmergencySwitchesTab() {
           </p>
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-3">
             <Field label="Switch ID (matches firmware)">
-              <Input name="switch_id" required placeholder="ESP32-SWITCH-01" />
+              <Input name="switch_id" required placeholder="SWITCH-01" />
             </Field>
             <Field label="Location (free text)">
               <Input name="location" required placeholder="Security Desk - Main Gate" />

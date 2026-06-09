@@ -10,8 +10,8 @@ import { useLive } from "@/hooks/use-live";
 import { cn } from "@/lib/utils";
 import { FiPlus, FiTrash2, FiX, FiMap, FiClock, FiRepeat } from "react-icons/fi";
 import type {
-  BleDevice,
-  EspScanner,
+  Tag,
+  Scanner,
   PatrolRoute,
   RouteAssignment,
   LoopingRouteConfig,
@@ -27,11 +27,11 @@ export default function RoutesPage() {
     select: (r) => r as { items: PatrolRoute[]; assignments: RouteAssignment[] },
     intervalMs: 10_000,
   });
-  const { data: scanners } = useLive<EspScanner[]>("/api/esp32-scanners", {
-    select: (r) => (r as { items: EspScanner[] }).items, intervalMs: 30_000,
+  const { data: scanners } = useLive<Scanner[]>("/api/esp32-scanners", {
+    select: (r) => (r as { items: Scanner[] }).items, intervalMs: 30_000,
   });
-  const { data: bleDevices } = useLive<BleDevice[]>("/api/ble-devices", {
-    select: (r) => (r as { items: BleDevice[] }).items, intervalMs: 30_000,
+  const { data: tags } = useLive<Tag[]>("/api/ble-devices", {
+    select: (r) => (r as { items: Tag[] }).items, intervalMs: 30_000,
   });
 
   const routes      = routesPayload?.items ?? [];
@@ -99,12 +99,12 @@ export default function RoutesPage() {
                           {myAssignments.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1.5">
                               {myAssignments.map((a) => {
-                                const ble = (bleDevices ?? []).find(
-                                  (d) => d.mac_address.toUpperCase() === a.ble_mac.toUpperCase()
+                                const ble = (tags ?? []).find(
+                                  (d) => d.mac_address.toUpperCase() === a.tag_mac.toUpperCase()
                                 );
                                 return (
                                   <span key={a.id} className="text-[10px] px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-400/30">
-                                    {ble?.guard_name ?? ble?.ble_name ?? a.ble_mac}
+                                    {ble?.guard_name ?? ble?.tag_name ?? a.tag_mac}
                                   </span>
                                 );
                               })}
@@ -133,7 +133,7 @@ export default function RoutesPage() {
               <RouteForm
                 initial={editing}
                 scanners={scanners ?? []}
-                bleDevices={bleDevices ?? []}
+                tags={tags ?? []}
                 currentAssignments={assignments.filter((a) => a.route_id === editing?.id)}
                 onCancel={() => { setShowNew(false); setEditing(null); }}
                 onSaved={async () => { setShowNew(false); setEditing(null); await refresh(); }}
@@ -147,11 +147,11 @@ export default function RoutesPage() {
 }
 
 // ─── Route summary string (used in the list) ─────────────────────────────────
-function RouteSummary({ route, scanners }: { route: PatrolRoute; scanners: EspScanner[] }) {
+function RouteSummary({ route, scanners }: { route: PatrolRoute; scanners: Scanner[] }) {
   if (route.route_type === "looping") {
     const c = route.config as LoopingRouteConfig;
     const stops = c.checkpoints
-      .map((id) => scanners.find((s) => s.esp_id === id)?.location ?? id)
+      .map((id) => scanners.find((s) => s.scanner_id === id)?.location ?? id)
       .join(" → ");
     return (
       <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -163,7 +163,7 @@ function RouteSummary({ route, scanners }: { route: PatrolRoute; scanners: EspSc
   return (
     <p className="text-xs text-[var(--color-muted)] mt-1">
       {c.schedule.length} scheduled checkpoint{c.schedule.length === 1 ? "" : "s"}:{" "}
-      {c.schedule.slice(0, 3).map((s) => `${s.time} ${scanners.find((x) => x.esp_id === s.espId)?.location ?? s.espId}`).join(" · ")}
+      {c.schedule.slice(0, 3).map((s) => `${s.time} ${scanners.find((x) => x.scanner_id === s.scannerId)?.location ?? s.scannerId}`).join(" · ")}
       {c.schedule.length > 3 && ` … +${c.schedule.length - 3} more`}
     </p>
   );
@@ -171,11 +171,11 @@ function RouteSummary({ route, scanners }: { route: PatrolRoute; scanners: EspSc
 
 // ─── Create/edit form ────────────────────────────────────────────────────────
 function RouteForm({
-  initial, scanners, bleDevices, currentAssignments, onCancel, onSaved,
+  initial, scanners, tags, currentAssignments, onCancel, onSaved,
 }: {
   initial: PatrolRoute | null;
-  scanners: EspScanner[];
-  bleDevices: BleDevice[];
+  scanners: Scanner[];
+  tags: Tag[];
   currentAssignments: RouteAssignment[];
   onCancel: () => void;
   onSaved: () => Promise<void>;
@@ -192,7 +192,7 @@ function RouteForm({
   // Fixed state
   const initialFixed = (initial?.config && (initial.config as FixedRouteConfig).schedule)
     ? initial.config as FixedRouteConfig
-    : { schedule: [] as Array<{ time: string; espId: string }> };
+    : { schedule: [] as Array<{ time: string; scannerId: string }> };
   const [schedule, setSchedule] = useState(initialFixed.schedule);
 
   // Shared fields
@@ -205,7 +205,7 @@ function RouteForm({
 
   // Guard assignments — initially from currentAssignments, otherwise empty
   const [assignedMacs, setAssignedMacs] = useState<Set<string>>(
-    new Set(currentAssignments.map((a) => a.ble_mac.toUpperCase()))
+    new Set(currentAssignments.map((a) => a.tag_mac.toUpperCase()))
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +226,7 @@ function RouteForm({
       shift_end:   shiftEnd   || undefined,
       config,
       active,
-      assignments: [...assignedMacs].map((mac) => ({ ble_mac: mac })),
+      assignments: [...assignedMacs].map((mac) => ({ tag_mac: mac })),
     };
 
     const url = initial ? `/api/routes/${initial.id}` : "/api/routes";
@@ -245,9 +245,9 @@ function RouteForm({
     }
   }
 
-  function addCheckpoint(espId: string) {
-    if (!espId) return;
-    setLoopCheckpoints((prev) => [...prev, espId]);
+  function addCheckpoint(scannerId: string) {
+    if (!scannerId) return;
+    setLoopCheckpoints((prev) => [...prev, scannerId]);
   }
   function removeCheckpoint(idx: number) {
     setLoopCheckpoints((prev) => prev.filter((_, i) => i !== idx));
@@ -263,9 +263,9 @@ function RouteForm({
   }
 
   function addScheduleRow() {
-    setSchedule((prev) => [...prev, { time: "22:00", espId: scanners[0]?.esp_id ?? "" }]);
+    setSchedule((prev) => [...prev, { time: "22:00", scannerId: scanners[0]?.scanner_id ?? "" }]);
   }
-  function updateScheduleRow(idx: number, patch: Partial<{ time: string; espId: string }>) {
+  function updateScheduleRow(idx: number, patch: Partial<{ time: string; scannerId: string }>) {
     setSchedule((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
   }
   function removeScheduleRow(idx: number) {
@@ -340,14 +340,14 @@ function RouteForm({
               {loopCheckpoints.length === 0 && (
                 <p className="text-xs text-[var(--color-muted)]">No checkpoints yet. Add the first one below.</p>
               )}
-              {loopCheckpoints.map((espId, idx) => {
-                const sc = scanners.find((s) => s.esp_id === espId);
+              {loopCheckpoints.map((scannerId, idx) => {
+                const sc = scanners.find((s) => s.scanner_id === scannerId);
                 return (
-                  <div key={`${espId}-${idx}`} className="flex items-center gap-2 rounded-md bg-white/[0.02] border border-white/[0.06] px-3 py-2">
+                  <div key={`${scannerId}-${idx}`} className="flex items-center gap-2 rounded-md bg-white/[0.02] border border-white/[0.06] px-3 py-2">
                     <span className="text-xs text-[var(--color-muted)] w-6 text-center">{idx + 1}</span>
                     <div className="flex-1 text-sm">
-                      <span className="text-white">{sc?.location ?? espId}</span>
-                      <span className="mono text-[10px] text-[var(--color-muted)] ml-2">{espId}</span>
+                      <span className="text-white">{sc?.location ?? scannerId}</span>
+                      <span className="mono text-[10px] text-[var(--color-muted)] ml-2">{scannerId}</span>
                     </div>
                     <button type="button" onClick={() => moveCheckpoint(idx, -1)} className="text-xs text-[var(--color-muted)] hover:text-white px-2">↑</button>
                     <button type="button" onClick={() => moveCheckpoint(idx,  1)} className="text-xs text-[var(--color-muted)] hover:text-white px-2">↓</button>
@@ -362,8 +362,8 @@ function RouteForm({
               >
                 <option value="" disabled>+ Add a checkpoint…</option>
                 {scanners.map((s) => (
-                  <option key={s.esp_id} value={s.esp_id}>
-                    {s.location} · {s.esp_id}
+                  <option key={s.scanner_id} value={s.scanner_id}>
+                    {s.location} · {s.scanner_id}
                   </option>
                 ))}
               </select>
@@ -386,12 +386,12 @@ function RouteForm({
                     className="rounded bg-white/[0.04] border border-white/10 px-2 py-1 text-sm text-white mono"
                   />
                   <select
-                    value={row.espId}
-                    onChange={(e) => updateScheduleRow(idx, { espId: e.target.value })}
+                    value={row.scannerId}
+                    onChange={(e) => updateScheduleRow(idx, { scannerId: e.target.value })}
                     className="flex-1 rounded bg-white/[0.04] border border-white/10 px-2 py-1 text-sm text-white"
                   >
                     {scanners.map((s) => (
-                      <option key={s.esp_id} value={s.esp_id}>{s.location} · {s.esp_id}</option>
+                      <option key={s.scanner_id} value={s.scanner_id}>{s.location} · {s.scanner_id}</option>
                     ))}
                   </select>
                   <button type="button" onClick={() => removeScheduleRow(idx)} className="text-xs text-[var(--color-danger)] hover:text-red-400 px-2">remove</button>
@@ -426,15 +426,15 @@ function RouteForm({
       {/* Guard assignments */}
       <div>
         <label className="text-xs text-[var(--color-muted)] uppercase tracking-[0.12em] block mb-2">
-          Assign Guards (BLE devices)
+          Assign Guards (Bluetooth tags)
         </label>
         <div className="flex flex-wrap gap-2">
-          {bleDevices.length === 0 && (
-            <p className="text-xs text-[var(--color-muted)]">No BLE devices registered yet. Register one in Devices → BLE Devices first.</p>
+          {tags.length === 0 && (
+            <p className="text-xs text-[var(--color-muted)]">No Bluetooth tags registered yet. Register one in Devices → Bluetooth Tags first.</p>
           )}
-          {bleDevices.map((d) => {
+          {tags.map((d) => {
             const sel = assignedMacs.has(d.mac_address.toUpperCase());
-            const label = d.guard_name ?? d.ble_name;
+            const label = d.guard_name ?? d.tag_name;
             return (
               <button
                 type="button"

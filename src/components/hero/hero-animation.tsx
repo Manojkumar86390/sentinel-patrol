@@ -3,15 +3,15 @@
 /**
  * HeroAnimation — a custom "live processing" visualization for the landing page.
  *
- * Replaces the placeholder video on the "ESP32 nodes, invisible by design"
+ * Replaces the placeholder video on the "Scanner nodes, invisible by design"
  * section. Pure SVG + CSS, no video file, no JavaScript animation loops —
  * everything is GPU-accelerated keyframe CSS, so it's smooth on phones and
  * crisp at any zoom level.
  *
  * The loop tells the project story end-to-end:
- *   1. Guard (with BLE tag) approaches a checkpoint, tag pulses
- *   2. ESP32 antenna picks up the signal, status LED flashes green
- *   3. A data packet travels from ESP32 over WiFi to the server
+ *   1. Guard (with Bluetooth tag) approaches a checkpoint, tag pulses
+ *   2. Scanner antenna picks up the signal, status LED flashes green
+ *   3. A data packet travels from Scanner over WiFi to the server
  *   4. A new row materializes on the dashboard with "Verified"
  *   5. Brief settle, then the next "guard" comes through
  *
@@ -56,11 +56,11 @@ export function HeroAnimation() {
       >
         <defs>
           {/* Glowing gradients */}
-          <radialGradient id="bleGlow" cx="50%" cy="50%" r="50%">
+          <radialGradient id="tagGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%"   stopColor="#2b7fff" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#2b7fff" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="espGlow" cx="50%" cy="50%" r="50%">
+          <radialGradient id="scannerGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%"   stopColor="#22c55e" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
           </radialGradient>
@@ -71,14 +71,14 @@ export function HeroAnimation() {
           </linearGradient>
         </defs>
 
-        {/* ────── ROW 1: Guard with BLE tag ────────────────────────── */}
+        {/* ────── ROW 1: Guard with Bluetooth tag ────────────────────────── */}
         <g transform="translate(60, 140)">
           {/* Glow halo */}
-          <circle cx="0" cy="0" r="55" fill="url(#bleGlow)">
+          <circle cx="0" cy="0" r="55" fill="url(#tagGlow)">
             <animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite" />
           </circle>
 
-          {/* BLE pulse rings */}
+          {/* Bluetooth pulse rings */}
           <circle cx="0" cy="0" r="20" fill="none" stroke="#2b7fff" strokeWidth="1.5" opacity="0.7">
             <animate attributeName="r"       values="20;55"   dur="2s" repeatCount="indefinite" />
             <animate attributeName="opacity" values="0.8;0"   dur="2s" repeatCount="indefinite" />
@@ -103,7 +103,7 @@ export function HeroAnimation() {
           <text x="0" y="28" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="8" fill="rgba(255,255,255,0.4)">44:A7:36...</text>
         </g>
 
-        {/* ────── Wire from guard to ESP32 ─────────────────────────── */}
+        {/* ────── Wire from guard to Scanner ─────────────────────────── */}
         <line x1="120" y1="140" x2="240" y2="140"
               stroke="url(#wireGrad)" strokeWidth="2" strokeDasharray="4 4" />
 
@@ -114,20 +114,20 @@ export function HeroAnimation() {
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" dur="1.6s" repeatCount="indefinite" />
         </circle>
 
-        {/* ────── ROW 2: ESP32 node ────────────────────────────────── */}
+        {/* ────── ROW 2: Scanner node ────────────────────────────────── */}
         <g transform="translate(240, 140)">
           {/* Glow */}
-          <circle cx="0" cy="0" r="50" fill="url(#espGlow)">
+          <circle cx="0" cy="0" r="50" fill="url(#scannerGlow)">
             <animate attributeName="opacity" values="0.3;0.8;0.3" dur="1.6s" begin="0.6s" repeatCount="indefinite" />
           </circle>
 
-          {/* ESP32 board outline */}
+          {/* Scanner board outline */}
           <rect x="-28" y="-22" width="56" height="44" rx="4"
                 fill="#1a1f2e" stroke="#22c55e" strokeWidth="1.5" />
 
           {/* Chip */}
           <rect x="-10" y="-8" width="20" height="16" rx="1.5" fill="#0a0d14" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
-          <text x="0" y="3" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="6" fill="rgba(34,197,94,0.9)">ESP32</text>
+          <text x="0" y="3" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="6" fill="rgba(34,197,94,0.9)">SCANNER</text>
 
           {/* GPIO pins along the sides */}
           {[-18, -12, -6, 0, 6, 12, 18].map((y) => (
@@ -147,15 +147,15 @@ export function HeroAnimation() {
           <path d="M -38,-26 Q -42,-22 -40,-18" fill="none" stroke="#22c55e" strokeWidth="1" opacity="0.6" />
         </g>
 
-        {/* ESP32 label */}
+        {/* Scanner label */}
         <g transform="translate(240, 215)">
           <rect x="-58" y="0" width="116" height="38" rx="6"
                 fill="rgba(34,197,94,0.08)" stroke="rgba(34,197,94,0.3)" strokeWidth="1" />
-          <text x="0" y="14" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="9" fill="#22c55e">ESP32-SCANNER-01</text>
+          <text x="0" y="14" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="9" fill="#22c55e">SCANNER-01</text>
           <text x="0" y="28" textAnchor="middle" fontFamily="ui-monospace,monospace" fontSize="8" fill="rgba(255,255,255,0.4)">Main Gate</text>
         </g>
 
-        {/* ────── Wire from ESP32 to server (curves up) ──────────── */}
+        {/* ────── Wire from Scanner to server (curves up) ──────────── */}
         <path d="M 280,140 Q 360,140 380,90 T 420,60"
               fill="none" stroke="url(#wireGrad)" strokeWidth="2" strokeDasharray="4 4" />
 

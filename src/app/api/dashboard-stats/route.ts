@@ -9,9 +9,9 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  const [events, bleDevices, scanners, alerts] = await Promise.all([
+  const [events, tags, scanners, alerts] = await Promise.all([
     db.events.all(),
-    db.bleDevices.all(),
+    db.tags.all(),
     db.scanners.all(),
     db.alerts.all(),
   ]);
@@ -26,13 +26,13 @@ export async function GET() {
   const todayEvents = events.filter((e) => e.date === today);
   const verifiedToday = todayEvents.filter((e) => e.status === "Verified");
 
-  // distinct BLE MACs seen today (Verified only)
+  // distinct Bluetooth MACs seen today (Verified only)
   const activeToday = new Set(verifiedToday.map((e) => e.bluetoothMac)).size;
 
   const activeAlerts = alerts.filter((a) => !a.acknowledged).length;
 
   const stats: DashboardStats = {
-    total_ble_devices:        bleDevices.length,
+    total_tags:        tags.length,
     total_scanners:           scanners.length,
     online_scanners:          onlineScanners,
     active_today:             activeToday,

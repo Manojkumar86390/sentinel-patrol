@@ -21,7 +21,7 @@ export function RecentActivity({ events }: Props) {
         <div>
           <CardTitle>Recent Patrol Activity</CardTitle>
           <p className="text-xs text-[var(--color-muted)] mt-0.5">
-            Live feed from all ESP32 scanners
+            Live feed from all Scanners
           </p>
         </div>
         <Link
@@ -48,7 +48,7 @@ export function RecentActivity({ events }: Props) {
               {events.length === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center py-10 text-sm text-[var(--color-muted)]">
-                    No events yet. Flash an ESP32 scanner to start streaming.
+                    No events yet. Flash a Scanner to start streaming.
                   </td>
                 </tr>
               )}
@@ -75,7 +75,7 @@ export function RecentActivity({ events }: Props) {
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-5 text-[var(--color-muted)] mono text-xs">{e.espId}</td>
+                  <td className="py-3 px-5 text-[var(--color-muted)] mono text-xs">{e.scannerId}</td>
                   <td className="py-3 px-5 text-white/90">{e.location}</td>
                   <td className="py-3 px-5 text-[var(--color-muted)] mono text-xs">
                     {e.date} {e.time}

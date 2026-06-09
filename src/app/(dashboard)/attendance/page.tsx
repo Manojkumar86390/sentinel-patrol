@@ -94,8 +94,8 @@ export default function AttendancePage() {
         {guards.length === 0 && (
           <Card className="p-10 text-center">
             <p className="text-sm text-[var(--color-muted)]">
-              No BLE devices registered yet. Add some under{" "}
-              <span className="text-white">Devices → BLE Devices</span> and they will appear here.
+              No Bluetooth tags registered yet. Add some under{" "}
+              <span className="text-white">Devices → Bluetooth Tags</span> and they will appear here.
             </p>
           </Card>
         )}

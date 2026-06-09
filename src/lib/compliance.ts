@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Patrol-route compliance computation.
 //
-// Pure function: given today's routes, the BLE/route assignments, and the
+// Pure function: given today's routes, the Bluetooth/route assignments, and the
 // recent patrol events, return a per-guard ComplianceSummary listing every
 // expected checkpoint slot (so far + upcoming) and whether the guard hit it.
 //
@@ -24,11 +24,11 @@
 import type {
   ComplianceSlot,
   ComplianceSummary,
-  EspScanner,
+  Scanner,
   PatrolEvent,
   PatrolRoute,
   RouteAssignment,
-  BleDevice,
+  Tag,
   LoopingRouteConfig,
   FixedRouteConfig,
 } from "@/types";
@@ -78,20 +78,20 @@ function formatHHMM(minutes: number): string {
 
 /**
  * Generate the expected slot list for a route, on a particular date, in IST.
- * The result is an ordered list of { expectedMinute, espId }. Each entry
+ * The result is an ordered list of { expectedMinute, scannerId }. Each entry
  * represents a checkpoint the guard should have hit.
  */
 function expectedSlotsForToday(
   route: PatrolRoute,
   dayMinutes: number,         // length of day, always 24*60 in practice
-): Array<{ expectedMinute: number; espId: string }> {
-  const slots: Array<{ expectedMinute: number; espId: string }> = [];
+): Array<{ expectedMinute: number; scannerId: string }> {
+  const slots: Array<{ expectedMinute: number; scannerId: string }> = [];
 
   if (route.route_type === "fixed") {
     const cfg = route.config as FixedRouteConfig;
     for (const item of cfg.schedule) {
       const m = parseHHMM(item.time);
-      if (m !== null) slots.push({ expectedMinute: m, espId: item.espId });
+      if (m !== null) slots.push({ expectedMinute: m, scannerId: item.scannerId });
     }
     slots.sort((a, b) => a.expectedMinute - b.expectedMinute);
     return slots;
@@ -113,9 +113,9 @@ function expectedSlotsForToday(
 
   let cursor = startMin;
   while (cursor < endMin) {
-    for (const espId of cfg.checkpoints) {
+    for (const scannerId of cfg.checkpoints) {
       if (cursor >= endMin) break;
-      slots.push({ expectedMinute: cursor % dayMinutes, espId });
+      slots.push({ expectedMinute: cursor % dayMinutes, scannerId });
       cursor += checkpointDurationMin;
     }
   }
@@ -124,7 +124,7 @@ function expectedSlotsForToday(
 
 /**
  * For a single slot, find the matching patrol event in `eventsForMac` that
- * comes closest to the expected time. "Matching" = same espId AND falls
+ * comes closest to the expected time. "Matching" = same scannerId AND falls
  * within the allowed window:
  *
  *     [expected - tolerance, expected + 2*tolerance]
@@ -136,9 +136,9 @@ function expectedSlotsForToday(
  */
 function findMatchingEvent(
   expectedMinute: number,
-  espId: string,
+  scannerId: string,
   toleranceMin: number,
-  eventsForMac: Array<{ espId: string; minutes: number; iso: string; time: string }>,
+  eventsForMac: Array<{ scannerId: string; minutes: number; iso: string; time: string }>,
 ): { iso: string; time: string; delay: number } | null {
   const earliestAllowed = expectedMinute - toleranceMin;
   const cutoffLate      = expectedMinute + 2 * toleranceMin;
@@ -146,7 +146,7 @@ function findMatchingEvent(
   let bestDist = Infinity;
 
   for (const e of eventsForMac) {
-    if (e.espId !== espId) continue;
+    if (e.scannerId !== scannerId) continue;
     if (e.minutes < earliestAllowed) continue;  // too early — doesn't match this slot
     if (e.minutes > cutoffLate) continue;       // too late even for the "late" bucket
     const dist = Math.abs(e.minutes - expectedMinute);
@@ -161,21 +161,21 @@ function findMatchingEvent(
 
 /**
  * Top-level computation. Given everything, produce a ComplianceSummary per
- * (route, ble_mac) pair that's active today.
+ * (route, tag_mac) pair that's active today.
  */
 export function computeCompliance({
   routes,
   assignments,
   events,
   scanners,
-  bleDevices,
+  tags,
   now = new Date(),
 }: {
   routes:      PatrolRoute[];
   assignments: RouteAssignment[];
   events:      PatrolEvent[];
-  scanners:    EspScanner[];
-  bleDevices:  BleDevice[];
+  scanners:    Scanner[];
+  tags:  Tag[];
   now?:        Date;
 }): ComplianceSummary[] {
   const t = nowInIst(now);
@@ -185,9 +185,9 @@ export function computeCompliance({
   const dayMinutes = 24 * 60;
 
   // Fast lookups
-  const locByEsp = new Map(scanners.map((s) => [s.esp_id, s.location] as const));
+  const locByEsp = new Map(scanners.map((s) => [s.scanner_id, s.location] as const));
   const bleByMac = new Map(
-    bleDevices.map((d) => [d.mac_address.toUpperCase(), d] as const)
+    tags.map((d) => [d.mac_address.toUpperCase(), d] as const)
   );
 
   // Pre-filter events to TODAY (IST) and compute their minutes-since-midnight.
@@ -199,7 +199,7 @@ export function computeCompliance({
       const m = (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
       return {
         macUpper: e.bluetoothMac.toUpperCase(),
-        espId:    e.espId,
+        scannerId:    e.scannerId,
         minutes:  m,
         iso:      e.receivedAt,
         time:     e.time,
@@ -219,15 +219,15 @@ export function computeCompliance({
     );
 
     for (const a of dayAssignments) {
-      const macUpper = a.ble_mac.toUpperCase();
+      const macUpper = a.tag_mac.toUpperCase();
       const eventsForThisGuard = todayEvents.filter((e) => e.macUpper === macUpper);
 
       let completed = 0, late = 0, missed = 0, upcoming = 0;
 
-      const slots: ComplianceSlot[] = slotsAll.map(({ expectedMinute, espId }) => {
+      const slots: ComplianceSlot[] = slotsAll.map(({ expectedMinute, scannerId }) => {
         const tolerance = route.late_tolerance_min;
-        const match = findMatchingEvent(expectedMinute, espId, tolerance, eventsForThisGuard);
-        const location = locByEsp.get(espId) ?? espId;
+        const match = findMatchingEvent(expectedMinute, scannerId, tolerance, eventsForThisGuard);
+        const location = locByEsp.get(scannerId) ?? scannerId;
 
         if (match) {
           // On-time when scan is within ±tolerance. Late when after +tolerance.
@@ -237,7 +237,7 @@ export function computeCompliance({
           if (isOnTime) completed++; else late++;
           return {
             expectedTime: formatHHMM(expectedMinute),
-            espId,
+            scannerId,
             location,
             status: isOnTime ? "completed" : "late",
             actualTime: match.time,
@@ -251,13 +251,13 @@ export function computeCompliance({
           missed++;
           return {
             expectedTime: formatHHMM(expectedMinute),
-            espId, location, status: "missed",
+            scannerId, location, status: "missed",
           };
         }
         upcoming++;
         return {
           expectedTime: formatHHMM(expectedMinute),
-          espId, location, status: "upcoming",
+          scannerId, location, status: "upcoming",
         };
       });
 
@@ -268,9 +268,9 @@ export function computeCompliance({
         : Math.round((completed / expectedSoFar) * 100);
 
       out.push({
-        bleMac:        macUpper,
+        tagMac:        macUpper,
         guardName:     ble?.guard_name,
-        bleName:       ble?.ble_name,
+        tagName:       ble?.tag_name,
         routeId:       route.id,
         routeName:     route.name,
         totalExpected: slots.length,

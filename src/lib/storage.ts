@@ -19,8 +19,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   PatrolEvent,
-  BleDevice,
-  EspScanner,
+  Tag,
+  Scanner,
   EmergencySwitch,
   PatrolRoute,
   RouteAssignment,
@@ -87,7 +87,7 @@ function eventFromDb(r: DbPatrolEvent): PatrolEvent {
     id:           r.id,
     name:         r.name,
     bluetoothMac: r.bluetooth_mac,
-    espId:        r.esp_id,
+    scannerId:    r.esp_id,           // legacy DB column → new type field
     location:     r.location,
     date:         r.date,
     time:         r.time,
@@ -103,7 +103,7 @@ function eventToDb(e: PatrolEvent): DbPatrolEvent {
     id:            e.id,
     name:          e.name,
     bluetooth_mac: e.bluetoothMac,
-    esp_id:        e.espId,
+    esp_id:        e.scannerId,       // new type field → legacy DB column
     location:      e.location,
     date:          e.date,
     time:          e.time,
@@ -114,8 +114,8 @@ function eventToDb(e: PatrolEvent): DbPatrolEvent {
   };
 }
 
-// ─── BleDevice ───────────────────────────────────────────────────────────
-type DbBleDevice = {
+// ─── Tag ───────────────────────────────────────────────────────────
+type DbTag = {
   id:          string;
   mac_address: string;
   ble_name:    string;
@@ -125,11 +125,11 @@ type DbBleDevice = {
   created_at:  string;
 };
 
-function bleFromDb(r: DbBleDevice): BleDevice {
+function tagFromDb(r: DbTag): Tag {
   return {
     id:          r.id,
     mac_address: r.mac_address,
-    ble_name:    r.ble_name,
+    tag_name:    r.ble_name,         // legacy DB column → new type field
     guard_name:  r.guard_name ?? undefined,
     photo_url:   r.photo_url  ?? undefined,
     notes:       r.notes      ?? undefined,
@@ -137,11 +137,11 @@ function bleFromDb(r: DbBleDevice): BleDevice {
   };
 }
 
-function bleToDb(d: BleDevice): DbBleDevice {
+function tagToDb(d: Tag): DbTag {
   return {
     id:          d.id,
     mac_address: d.mac_address,
-    ble_name:    d.ble_name,
+    ble_name:    d.tag_name,         // new type field → legacy DB column
     guard_name:  d.guard_name ?? null,
     photo_url:   d.photo_url  ?? null,
     notes:       d.notes      ?? null,
@@ -149,7 +149,7 @@ function bleToDb(d: BleDevice): DbBleDevice {
   };
 }
 
-// ─── EspScanner ──────────────────────────────────────────────────────────
+// ─── Scanner ──────────────────────────────────────────────────────────
 type DbScanner = {
   id:             string;
   esp_id:         string;
@@ -160,10 +160,10 @@ type DbScanner = {
   created_at:     string;
 };
 
-function scannerFromDb(r: DbScanner): EspScanner {
+function scannerFromDb(r: DbScanner): Scanner {
   return {
     id:             r.id,
-    esp_id:         r.esp_id,
+    scanner_id:     r.esp_id,        // legacy DB column → new type field
     location:       r.location,
     description:    r.description ?? undefined,
     status:         r.status as DeviceStatus,
@@ -172,10 +172,10 @@ function scannerFromDb(r: DbScanner): EspScanner {
   };
 }
 
-function scannerToDb(s: EspScanner): DbScanner {
+function scannerToDb(s: Scanner): DbScanner {
   return {
     id:             s.id,
-    esp_id:         s.esp_id,
+    esp_id:         s.scanner_id,    // new type field → legacy DB column
     location:       s.location,
     description:    s.description ?? null,
     status:         s.status,
@@ -251,7 +251,7 @@ function alertFromDb(r: DbAlert): EmergencyAlert {
   return {
     id:               r.id,
     type:             r.type as AlertType,
-    espId:            r.esp_id ?? undefined,
+    scannerId:        r.esp_id ?? undefined,    // legacy DB column → new type field
     switchId:         r.switch_id ?? undefined,
     location:         r.location,
     date:             r.date,
@@ -271,7 +271,7 @@ function alertToDb(a: EmergencyAlert): DbAlert {
   return {
     id:                a.id,
     type:              a.type,
-    esp_id:            a.espId ?? null,
+    esp_id:            a.scannerId ?? null,     // new type field → legacy DB column
     switch_id:         a.switchId ?? null,
     location:          a.location,
     date:              a.date,
@@ -342,22 +342,22 @@ export const db = {
     },
   },
 
-  bleDevices: {
-    all: async (): Promise<BleDevice[]> => {
+  tags: {
+    all: async (): Promise<Tag[]> => {
       const { data, error } = await client()
         .from("ble_devices")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw new Error(`storage.bleDevices.all: ${error.message}`);
-      return (data as DbBleDevice[] | null ?? []).map(bleFromDb);
+      if (error) throw new Error(`storage.tags.all: ${error.message}`);
+      return (data as DbTag[] | null ?? []).map(tagFromDb);
     },
-    save: async (rows: BleDevice[]): Promise<void> => {
-      await replaceAll("ble_devices", rows.map(bleToDb));
+    save: async (rows: Tag[]): Promise<void> => {
+      await replaceAll("ble_devices", rows.map(tagToDb));
     },
   },
 
   scanners: {
-    all: async (): Promise<EspScanner[]> => {
+    all: async (): Promise<Scanner[]> => {
       const { data, error } = await client()
         .from("esp32_scanners")
         .select("*")
@@ -365,7 +365,7 @@ export const db = {
       if (error) throw new Error(`storage.scanners.all: ${error.message}`);
       return (data as DbScanner[] | null ?? []).map(scannerFromDb);
     },
-    save: async (rows: EspScanner[]): Promise<void> => {
+    save: async (rows: Scanner[]): Promise<void> => {
       await replaceAll("esp32_scanners", rows.map(scannerToDb));
     },
   },
@@ -485,7 +485,7 @@ export const db = {
       }>).map((r) => ({
         id:           r.id,
         route_id:     r.route_id,
-        ble_mac:      r.ble_mac,
+        tag_mac:      r.ble_mac,         // legacy DB column → new type field
         days_of_week: r.days_of_week,
         created_at:   r.created_at,
       }));
@@ -494,7 +494,7 @@ export const db = {
       const { error } = await client().from("route_assignments").upsert({
         id:           a.id,
         route_id:     a.route_id,
-        ble_mac:      a.ble_mac,
+        ble_mac:      a.tag_mac,         // new type field → legacy DB column
         days_of_week: a.days_of_week,
         created_at:   a.created_at,
       });

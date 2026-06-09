@@ -4,11 +4,11 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { CAMPUS_CENTER, CAMPUS_LOCATIONS } from "@/lib/campus-locations";
-import type { EmergencyAlert, EmergencySwitch, EspScanner } from "@/types";
+import type { EmergencyAlert, EmergencySwitch, Scanner } from "@/types";
 
 interface Props {
-  /** Registered ESP32 scanners — used for the static "checkpoint" pins. */
-  scanners: EspScanner[];
+  /** Registered Scanners — used for the static "checkpoint" pins. */
+  scanners: Scanner[];
   /** Registered Emergency Switches — pinned at their lat/lng. */
   switches: EmergencySwitch[];
   /** Unacknowledged active emergencies — shown as pulsing red markers. */
@@ -87,7 +87,7 @@ export function AlertsMap({ scanners, switches, activeAlerts, height = 360 }: Pr
              <div style="font-weight:600;color:white;font-size:13px;margin-bottom:2px">${escapeHtml(loc.name)}</div>
              <div style="font-size:11px;color:#aaa">${
                scanner
-                 ? `Scanner <code style="font-family:ui-monospace,monospace">${escapeHtml(scanner.esp_id)}</code> · ${online ? "online" : "offline"}`
+                 ? `Scanner <code style="font-family:ui-monospace,monospace">${escapeHtml(scanner.scanner_id)}</code> · ${online ? "online" : "offline"}`
                  : "No scanner deployed"
              }</div>
            </div>`,

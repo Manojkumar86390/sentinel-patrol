@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Public URL for the bucket. Stored on the BLE device row.
+  // Public URL for the bucket. Stored on the Bluetooth tag row.
   const { data: pub } = supabase.storage.from("guard-photos").getPublicUrl(filename);
 
   return NextResponse.json({ ok: true, url: pub.publicUrl, filename });

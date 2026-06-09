@@ -2,15 +2,15 @@
 // /api/emergency-alerts
 //   GET    – list alerts (newest first). Auth required.
 //            ?unack=1 returns only unacknowledged alerts.
-//   POST   – ESP32 hardware POSTs an emergency. No auth required.
+//   POST   – Scanner hardware POSTs an emergency. No auth required.
 //   DELETE – wipe history. Auth required.
 //
-// Payload from ESP32:
+// Payload from Scanner:
 //   { "type": "fire" | "accident" | "bleeding" | "fight",
-//     "espId": "ESP32-SCANNER-01" }
+//     "scannerId": "SCANNER-01" }
 //
 // The server resolves the location via the registered scanners table
-// (same as patrol-events). If the espId isn't registered, location is
+// (same as patrol-events). If the scannerId isn't registered, location is
 // stored as "Unknown" and notifications still go out (safer for
 // real emergencies).
 // ---------------------------------------------------------------------------
@@ -59,15 +59,15 @@ export async function GET(req: Request) {
 // Payload variants we accept:
 //
 //   Emergency Switch product (preferred, new):
-//     { type: "fire"|"accident"|"bleeding"|"fight", switchId: "ESP32-SWITCH-01" }
+//     { type: "fire"|"accident"|"bleeding"|"fight", switchId: "SWITCH-01" }
 //     -> creates an alert, location resolved from emergency_switches table
 //
 //   Heartbeat (every 30s from Emergency Switch firmware):
-//     { type: "heartbeat", switchId: "ESP32-SWITCH-01" }
+//     { type: "heartbeat", switchId: "SWITCH-01" }
 //     -> updates last_heartbeat in emergency_switches; NO alert created
 //
 //   Scanner product (legacy, combined hardware):
-//     { type: "fire"|..., espId: "ESP32-SCANNER-01" }
+//     { type: "fire"|..., scannerId: "SCANNER-01" }
 //     -> creates an alert, location resolved from esp32_scanners table
 
 export async function POST(req: Request) {
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { type?: string; espId?: string; switchId?: string };
+  let body: { type?: string; scannerId?: string; switchId?: string };
   try {
     body = await req.json();
   } catch {
@@ -85,12 +85,12 @@ export async function POST(req: Request) {
   }
 
   const rawType  = String(body.type ?? "").toLowerCase();
-  const espId    = (body.espId    ?? "").trim() || undefined;
+  const scannerId    = (body.scannerId    ?? "").trim() || undefined;
   const switchId = (body.switchId ?? "").trim() || undefined;
 
-  if (!espId && !switchId) {
+  if (!scannerId && !switchId) {
     return NextResponse.json(
-      { ok: false, error: "Either espId or switchId must be provided" },
+      { ok: false, error: "Either scannerId or switchId must be provided" },
       { status: 400 }
     );
   }
@@ -121,9 +121,9 @@ export async function POST(req: Request) {
     if (sw) location = sw.location;
     // Always touch the heartbeat too — pressing a button counts as "alive".
     await db.switches.touchHeartbeat(switchId);
-  } else if (espId) {
+  } else if (scannerId) {
     const scanners = await db.scanners.all();
-    const scanner  = scanners.find((s) => s.esp_id === espId);
+    const scanner  = scanners.find((s) => s.scanner_id === scannerId);
     if (scanner) location = scanner.location;
   }
 
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
   const alert: EmergencyAlert = {
     id: `${now.getTime()}-${Math.random().toString(36).slice(2, 9)}`,
     type,
-    espId,
+    scannerId,
     switchId,
     location,
     date: now.toISOString().slice(0, 10),
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
   // Telegram message — source line shows whichever ID we have.
   const sourceLine = switchId
     ? `📟 <b>Switch:</b> <code>${escapeHtml(switchId)}</code>`
-    : `📟 <b>Scanner:</b> <code>${escapeHtml(espId ?? "Unknown")}</code>`;
+    : `📟 <b>Scanner:</b> <code>${escapeHtml(scannerId ?? "Unknown")}</code>`;
 
   const tgMessage =
     `${TYPE_EMOJI[type]} <b>${TYPE_LABEL[type]} ALERT</b>\n` +

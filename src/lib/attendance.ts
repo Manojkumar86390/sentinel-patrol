@@ -8,12 +8,12 @@
 //                                   and a scan at 02:00 belongs to the
 //                                   PREVIOUS calendar date's night shift)
 //   - A guard is Present for a (date, shift) cell if AT LEAST ONE of their
-//     registered BLE devices has a Verified scan in that window.
-//   - Only registered BLE devices count. Anonymous MACs are ignored.
+//     registered Bluetooth tags has a Verified scan in that window.
+//   - Only registered Bluetooth tags count. Anonymous MACs are ignored.
 //   - Rolling 30-day window ending at "today" (server's date).
 // ---------------------------------------------------------------------------
 
-import type { BleDevice, PatrolEvent } from "@/types";
+import type { Tag, PatrolEvent } from "@/types";
 
 export type Shift = "day" | "night";
 
@@ -25,11 +25,11 @@ export interface AttendanceCell {
 }
 
 export interface GuardRow {
-  /** Stable id we use as the row key; comes from the BLE device's id */
+  /** Stable id we use as the row key; comes from the Bluetooth tag's id */
   id: string;
   /** Display label for the column header */
   label: string;
-  /** Sub-label shown underneath (BLE name + MAC) */
+  /** Sub-label shown underneath (Bluetooth name + MAC) */
   sublabel: string;
   /** All scans this guard could be matched against, by date+shift */
   cells: Map<string, AttendanceCell>;  // key = `${date}|${shift}`
@@ -89,29 +89,29 @@ export function buildDateAxis(windowDays = 30): string[] {
 /**
  * Build the attendance grid from raw inputs.
  *
- * @param bleDevices  registered BLE tags
+ * @param tags  registered Bluetooth tags
  * @param events      patrol events from the server
  * @param windowDays  rolling window length (default 30)
  */
 export function buildAttendance(
-  bleDevices: BleDevice[],
+  tags: Tag[],
   events: PatrolEvent[],
   windowDays = 30
 ): { dates: string[]; guards: GuardRow[] } {
   const dates = buildDateAxis(windowDays);
   const dateSet = new Set(dates);
 
-  // Map MAC (lowercased) -> BLE device, so we can match scans quickly.
-  const macToDevice = new Map<string, BleDevice>();
-  for (const d of bleDevices) {
+  // Map MAC (lowercased) -> Bluetooth tag, so we can match scans quickly.
+  const macToDevice = new Map<string, Tag>();
+  for (const d of tags) {
     macToDevice.set(d.mac_address.toLowerCase(), d);
   }
 
-  // Initialize a row per registered BLE device.
-  const guards: GuardRow[] = bleDevices.map((d) => ({
+  // Initialize a row per registered Bluetooth tag.
+  const guards: GuardRow[] = tags.map((d) => ({
     id: d.id,
-    label: d.guard_name ?? d.ble_name,
-    sublabel: d.guard_name ? `${d.ble_name} · ${d.mac_address}` : d.mac_address,
+    label: d.guard_name ?? d.tag_name,
+    sublabel: d.guard_name ? `${d.tag_name} · ${d.mac_address}` : d.mac_address,
     cells: new Map(),
     totals: { presentDay: 0, presentNight: 0, absentDay: 0, absentNight: 0 },
   }));

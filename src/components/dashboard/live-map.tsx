@@ -5,10 +5,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { CAMPUS_CENTER, CAMPUS_LOCATIONS, type CampusLocation } from "@/lib/campus-locations";
 import { timeAgo } from "@/lib/utils";
-import type { EspScanner, GuardPosition, PatrolEvent } from "@/types";
+import type { Scanner, GuardPosition, PatrolEvent } from "@/types";
 
 interface Props {
-  scanners: EspScanner[];
+  scanners: Scanner[];
   events:   PatrolEvent[];
   guardPositions?: GuardPosition[];   // NEW: live-computed guard positions
   height?:  number;
@@ -18,14 +18,14 @@ type MarkerState = "online" | "offline" | "unmapped";
 
 interface ResolvedMarker {
   loc: CampusLocation;
-  scanner?: EspScanner;
+  scanner?: Scanner;
   state: MarkerState;
   lastEvent?: PatrolEvent;
 }
 
 /** Resolve each campus location against the live scanner list. */
 function resolveMarkers(
-  scanners: EspScanner[],
+  scanners: Scanner[],
   events:   PatrolEvent[]
 ): ResolvedMarker[] {
   return CAMPUS_LOCATIONS.map((loc) => {
@@ -38,7 +38,7 @@ function resolveMarkers(
         ? "online"
         : "offline";
     const lastEvent = scanner
-      ? events.find((e) => e.espId === scanner.esp_id)
+      ? events.find((e) => e.scannerId === scanner.scanner_id)
       : undefined;
     return { loc, scanner, state, lastEvent };
   });
@@ -51,7 +51,7 @@ function resolveMarkers(
  */
 /**
  * Build a Leaflet icon for an animated GUARD marker. Yellow/amber pulsing dot
- * with a small label below showing the BLE name or guard name. Distinct from
+ * with a small label below showing the Bluetooth name or guard name. Distinct from
  * the green/red checkpoint pins so the eye separates them at a glance.
  */
 function buildGuardIcon(label: string): L.DivIcon {
@@ -177,9 +177,9 @@ export function LiveMap({ scanners, events, guardPositions = [], height = 420 }:
           : `<span style="color:#9ca3af">○ UNMAPPED</span>`;
 
       const scannerLine = scanner
-        ? `<div style="font-family:ui-monospace,monospace;font-size:11px;color:#aaa">${escape(scanner.esp_id)}</div>
+        ? `<div style="font-family:ui-monospace,monospace;font-size:11px;color:#aaa">${escape(scanner.scanner_id)}</div>
            <div style="font-size:11px;color:#aaa;margin-top:2px">Last seen ${timeAgo(scanner.last_heartbeat)}</div>`
-        : `<div style="font-size:11px;color:#9ca3af;margin-top:2px">No scanner registered at this location.<br/>Add one in Devices &rarr; ESP32 Scanners.</div>`;
+        : `<div style="font-size:11px;color:#9ca3af;margin-top:2px">No scanner registered at this location.<br/>Add one in Devices &rarr; Scanners.</div>`;
 
       const lastEventLine = lastEvent
         ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #333">
@@ -254,7 +254,7 @@ export function LiveMap({ scanners, events, guardPositions = [], height = 420 }:
       // Popup with diagnostic info
       const sampleHtml = g.sample
         .map((s) => `<li style="font-family:ui-monospace,monospace;font-size:10px;color:#aaa">
-            ${escape(s.location)} (${escape(s.espId)}) · ${s.rssi} dBm · ${s.ageSeconds}s ago
+            ${escape(s.location)} (${escape(s.scannerId)}) · ${s.rssi} dBm · ${s.ageSeconds}s ago
           </li>`)
         .join("");
       const html = `

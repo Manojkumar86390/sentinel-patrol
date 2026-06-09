@@ -17,16 +17,16 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  const [routes, assignments, events, scanners, bleDevices] = await Promise.all([
+  const [routes, assignments, events, scanners, tags] = await Promise.all([
     db.routes.all(),
     db.assignments.all(),
     db.events.all(),
     db.scanners.all(),
-    db.bleDevices.all(),
+    db.tags.all(),
   ]);
 
   const summaries = computeCompliance({
-    routes, assignments, events, scanners, bleDevices,
+    routes, assignments, events, scanners, tags,
   });
   return NextResponse.json({ ok: true, items: summaries, computedAt: new Date().toISOString() });
 }

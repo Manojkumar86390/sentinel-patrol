@@ -86,7 +86,7 @@ export default function CompliancePage() {
         ) : (
           <div className="space-y-3">
             {all.map((s) => {
-              const key = `${s.routeId}|${s.bleMac}`;
+              const key = `${s.routeId}|${s.tagMac}`;
               const open = expanded.has(key);
               const tone = s.compliancePct >= 90 ? "text-[var(--color-success)]"
                          : s.compliancePct >= 70 ? "text-[var(--color-warning)]"
@@ -102,7 +102,7 @@ export default function CompliancePage() {
                           : <FiChevronRight className="h-4 w-4 text-[var(--color-muted)]" />}
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">
-                        {s.guardName ?? s.bleName ?? s.bleMac}
+                        {s.guardName ?? s.tagName ?? s.tagMac}
                       </p>
                       <p className="text-xs text-[var(--color-muted)] mt-0.5">
                         {s.routeName} ·{" "}

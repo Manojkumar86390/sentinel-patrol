@@ -67,10 +67,10 @@ async function sendOne(
 
 /**
  * Send `message` to the configured group AND every individual chat in parallel.
- * Never throws — caller (emergency-alerts POST) needs to respond to the ESP32 quickly.
+ * Never throws — caller (emergency-alerts POST) needs to respond to the Scanner quickly.
  *
  * Telegram supports HTML-flavoured formatting; escape any untrusted strings
- * the caller passes in (here, `location` and `espId` are server-side controlled).
+ * the caller passes in (here, `location` and `scannerId` are server-side controlled).
  */
 export async function sendAlertNotification(message: string): Promise<NotifyResult> {
   const token   = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();

@@ -15,14 +15,14 @@ export interface CpuArchitectureSvgProps {
 
 /**
  * Animated CPU/network diagram — used in the hero "How it works" panel to
- * visually represent ESP32 devices streaming data to the central server.
+ * visually represent Scanner devices streaming data to the central server.
  * Sourced from archtiteture.txt and kept as-is so existing CSS hooks work.
  */
 export const CpuArchitecture = ({
   className,
   width = "100%",
   height = "100%",
-  text = "ESP32",
+  text = "SCANNER",
   showCpuConnections = true,
   animateText = true,
   lineMarkerSize = 18,

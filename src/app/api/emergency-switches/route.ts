@@ -5,7 +5,7 @@
 //
 // Mirrors /api/esp32-scanners exactly, but operates on the emergency_switches
 // table. Emergency switches are a separate product (Product 2) — they only do
-// panic-button signaling, no BLE scanning.
+// panic-button signaling, no Bluetooth scanning.
 // ---------------------------------------------------------------------------
 
 import { NextResponse } from "next/server";

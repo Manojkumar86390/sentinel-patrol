@@ -2,7 +2,7 @@
 // Demo mode simulator.
 //
 // Generates fake GuardPosition data CLIENT-SIDE so the live map looks alive
-// without needing real ESP32 hardware. Used in two places:
+// without needing real Scanner hardware. Used in two places:
 //   1. /live?demo=1     — landing page "See Demo" CTA opens this
 //   2. /live with the   — toggle inside the live status header
 //      "Demo Mode" toggle
@@ -12,7 +12,7 @@
 // app (ticker direction arrows, accuracy ring) reacts naturally.
 //
 // IMPORTANT: This never writes to the database. It only overrides what the
-// frontend renders. Real ESP32 events continue to flow into Supabase as
+// frontend renders. Real Scanner events continue to flow into Supabase as
 // usual. The override is purely visual.
 // ---------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ interface FakeGuard {
   mac: string;
   name: string;
   guardName: string;
-  /** ESP32 IDs the guard cycles between (must exist or be made up). */
+  /** Scanner IDs the guard cycles between (must exist or be made up). */
   fromEsp: string;
   toEsp: string;
   /** From → To progress, ranges 0..1..0..1 in a triangle wave. */
@@ -38,8 +38,8 @@ const DEMO_GUARDS: FakeGuard[] = [
     mac: "DEMO:AA:11:22:33:44",
     name: "HC-05",
     guardName: "Manoj",
-    fromEsp: "ESP32-DEMO-MAIN-GATE",
-    toEsp:   "ESP32-DEMO-ECE-BLOCK",
+    fromEsp: "SCANNER-DEMO-MAIN-GATE",
+    toEsp:   "SCANNER-DEMO-ECE-BLOCK",
     loopMs: 30_000,
     phaseOffsetMs: 0,
   },
@@ -47,8 +47,8 @@ const DEMO_GUARDS: FakeGuard[] = [
     mac: "DEMO:BB:55:66:77:88",
     name: "GUARD_TAG_01",
     guardName: "Mridul",
-    fromEsp: "ESP32-DEMO-ECE-BLOCK",
-    toEsp:   "ESP32-DEMO-SPORTS",
+    fromEsp: "SCANNER-DEMO-ECE-BLOCK",
+    toEsp:   "SCANNER-DEMO-SPORTS",
     loopMs: 30_000,
     phaseOffsetMs: 10_000,   // start 10s into the loop
   },
@@ -56,8 +56,8 @@ const DEMO_GUARDS: FakeGuard[] = [
     mac: "DEMO:CC:99:AA:BB:CC",
     name: "HC-05",
     guardName: "Sai Krishna",
-    fromEsp: "ESP32-DEMO-SPORTS",
-    toEsp:   "ESP32-DEMO-MVHR-HOSTEL",
+    fromEsp: "SCANNER-DEMO-SPORTS",
+    toEsp:   "SCANNER-DEMO-MVHR-HOSTEL",
     loopMs: 30_000,
     phaseOffsetMs: 20_000,
   },
@@ -111,13 +111,13 @@ export function generateDemoPositions(now: number = Date.now()): GuardPosition[]
       source: "interpolated" as const,
       sample: [
         {
-          espId: progress < 0.5 ? `ESP32-DEMO-${slug(a.name)}` : `ESP32-DEMO-${slug(b.name)}`,
+          scannerId: progress < 0.5 ? `SCANNER-DEMO-${slug(a.name)}` : `SCANNER-DEMO-${slug(b.name)}`,
           rssi: rssiNear,
           location: progress < 0.5 ? a.name : b.name,
           ageSeconds: 1,
         },
         {
-          espId: progress < 0.5 ? `ESP32-DEMO-${slug(b.name)}` : `ESP32-DEMO-${slug(a.name)}`,
+          scannerId: progress < 0.5 ? `SCANNER-DEMO-${slug(b.name)}` : `SCANNER-DEMO-${slug(a.name)}`,
           rssi: rssiFar,
           location: progress < 0.5 ? b.name : a.name,
           ageSeconds: 1,

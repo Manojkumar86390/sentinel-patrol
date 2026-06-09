@@ -2,35 +2,38 @@
 // Domain types for the Smart Security Patrol Monitoring System.
 //
 // Model:
-//   - A BLE device (HC-05, GUARD_TAG_01, …) is a roaming tag carried by a
-//     guard. It has a MAC and an optional friendly name. It has NO location.
+//   - A Tag (HC-05, GUARD_TAG_01, …) is a roaming Bluetooth device carried
+//     by a guard. It has a MAC and an optional friendly name. NO location.
 //
-//   - An ESP32 scanner is bolted to a wall at a fixed checkpoint. It has an
-//     ESP_ID and a location (e.g. "Hostel Gate"). The location belongs to
-//     the scanner because the scanner is what doesn't move.
+//   - A Scanner is bolted to a wall at a fixed checkpoint. It has a scanner_id
+//     and a location (e.g. "Hostel Gate"). The location belongs to the
+//     scanner because the scanner is what doesn't move.
 //
-//   - A PatrolEvent records "this BLE device was seen by this ESP32 scanner
-//     at this time". The event's location is whatever the scanner's location
-//     was at scan time.
+//   - A PatrolEvent records "this Tag was seen by this Scanner at this time".
+//     The event's location is whatever the scanner's location was at scan time.
+//
+// Note on DB column names: the underlying tables still use legacy columns
+// `ble_name`, `esp_id`, `ble_mac` for backwards compatibility with existing
+// data. The storage layer maps them to the new field names at the boundary.
 // ---------------------------------------------------------------------------
 
 export type EventStatus  = "Verified" | "Missed" | "Late";
 export type DeviceStatus = "online" | "offline";
 export type AlertType    = "accident" | "fire" | "bleeding" | "fight";
 
-/** A single BLE scan event. Stored in /data/patrol-events.json. */
+/** A single Bluetooth scan event. Stored in the patrol_events table. */
 export interface PatrolEvent {
   id: string;
   bluetoothMac: string;   // "44:a7:36:85:cb:22" or "n/a"
-  name: string;           // BLE-broadcast name, e.g. "HC-05" or "NO_DEVICE"
-  guardName?: string;     // optional friendly label from BLE devices table
-  espId: string;          // "ESP32-SCANNER-01"
-  location: string;       // resolved from the ESP32 scanner's location field
+  name: string;           // Bluetooth-broadcast name, e.g. "HC-05" or "NO_DEVICE"
+  guardName?: string;     // optional friendly label from tags table
+  scannerId: string;      // "ESP32-SCANNER-01"  (firmware ID, kept legacy format)
+  location: string;       // resolved from the Scanner's location field
   date: string;           // "YYYY-MM-DD"
   time: string;           // "HH:MM:SS"
   status: EventStatus;
   receivedAt: string;     // ISO timestamp the server recorded the event
-  rssi?: number;          // dBm value from BLE scan (negative number). Absent for NO_DEVICE.
+  rssi?: number;          // dBm value from Bluetooth scan (negative number). Absent for NO_DEVICE.
 }
 
 /**
@@ -39,7 +42,7 @@ export interface PatrolEvent {
  * recent patrol events.
  */
 export interface GuardPosition {
-  mac: string;             // BLE MAC address (the "key")
+  mac: string;             // Bluetooth MAC address (the "key")
   name: string;            // "HC-05" or friendly guard name
   guardName?: string;
   lat: number;             // estimated latitude
@@ -48,7 +51,7 @@ export interface GuardPosition {
   computedAt: string;      // ISO timestamp
   source: "snap" | "interpolated";  // method used
   sample: Array<{          // raw inputs used (for transparency)
-    espId: string;
+    scannerId: string;
     rssi: number;
     location: string;
     ageSeconds: number;
@@ -56,14 +59,14 @@ export interface GuardPosition {
 }
 
 /**
- * A registered BLE tag (HC-05, GUARD_TAG_01, etc.).
- * Stored in /data/ble-devices.json. NO location field — locations belong to
- * the ESP32 scanners.
+ * A registered Bluetooth Tag (HC-05, GUARD_TAG_01, etc.).
+ * Stored in the `ble_devices` table (column names kept legacy for compatibility).
+ * NO location field — locations belong to the Scanners.
  */
-export interface BleDevice {
+export interface Tag {
   id: string;
   mac_address: string;   // uppercased "AA:BB:CC:DD:EE:FF"
-  ble_name: string;      // the name as broadcast over BLE (e.g. "HC-05")
+  tag_name: string;      // the name as broadcast over Bluetooth (e.g. "HC-05")
   guard_name?: string;   // optional friendly label ("Rajesh", "Night Guard A")
   photo_url?: string;    // public URL of the guard photo (Supabase Storage)
   notes?: string;
@@ -71,13 +74,13 @@ export interface BleDevice {
 }
 
 /**
- * A registered ESP32 scanner.
- * Stored in /data/esp32-scanners.json. The scanner's location is the
- * checkpoint where this device is bolted.
+ * A registered Scanner (ESP32 hardware at a checkpoint).
+ * Stored in the `esp32_scanners` table (kept legacy table name for compatibility).
+ * The scanner's location is the checkpoint where this device is bolted.
  */
-export interface EspScanner {
+export interface Scanner {
   id: string;
-  esp_id: string;         // matches the ESP_ID in the firmware
+  scanner_id: string;     // matches the SCANNER_ID / ESP_ID in the firmware
   location: string;       // checkpoint name, e.g. "Hostel Gate"
   description?: string;   // optional free-form description
   status: DeviceStatus;   // computed from last_heartbeat
@@ -97,10 +100,10 @@ export interface AppConfig {
 /**
  * A registered Emergency Switch (Product 2).
  *
- * Physically: an ESP32 with 4 panic buttons, kept at the security guard's
- * desk. Each switch has a unique switch_id and a free-form location string
- * (NOT tied to the campus map pins — could be "Security Desk - Main Gate",
- * "Hostel Office", etc.).
+ * Physically: a hardware module with 4 panic buttons, kept at the security
+ * guard's desk. Each switch has a unique switch_id and a free-form location
+ * string (NOT tied to the campus map pins — could be "Security Desk - Main
+ * Gate", "Hostel Office", etc.).
  *
  * Coordinates are REQUIRED — they're used to plot the switch on the alerts
  * map so emergencies are visualized at the right spot on campus.
@@ -120,17 +123,17 @@ export interface EmergencySwitch {
 }
 
 /**
- * An emergency button-press from the ESP32 hardware (Accident / Fire / Bleeding / Fight).
- * Stored in /data/emergency-alerts.json.
+ * An emergency button-press from the hardware (Accident / Fire / Bleeding / Fight).
+ * Stored in the emergency_alerts table.
  *
- * Either espId OR switchId is set, depending on which product sent the alert:
- *   - switchId: from a dedicated Emergency Switch (Product 2) — preferred
- *   - espId:    from a Scanner that ALSO has buttons (legacy combined hardware)
+ * Either scannerId OR switchId is set, depending on which product sent the alert:
+ *   - switchId:  from a dedicated Emergency Switch (Product 2) — preferred
+ *   - scannerId: from a Scanner that ALSO has buttons (legacy combined hardware)
  */
 export interface EmergencyAlert {
   id: string;
   type: AlertType;
-  espId?: string;          // legacy combined-hardware path
+  scannerId?: string;      // legacy combined-hardware path
   switchId?: string;       // new Emergency Switch product path
   location: string;        // resolved from scanner or switch table; "Unknown" if not registered
   date: string;            // YYYY-MM-DD
@@ -147,10 +150,10 @@ export interface EmergencyAlert {
 
 /** Dashboard stat-card counts. */
 export interface DashboardStats {
-  total_ble_devices:        number;
+  total_tags:               number;
   total_scanners:           number;
   online_scanners:          number;
-  active_today:             number;  // distinct BLE devices seen today
+  active_today:             number;  // distinct tags seen today
   missed_checkpoints_today: number;
   verified_today:           number;
   active_alerts:            number;  // unacknowledged emergency alerts
@@ -169,7 +172,7 @@ export interface DashboardStats {
  */
 export interface LoopingRouteConfig {
   intervalMin: number;        // minutes between full loops
-  checkpoints: string[];      // ordered list of esp_id values
+  checkpoints: string[];      // ordered list of scanner_id values
 }
 
 /**
@@ -178,8 +181,8 @@ export interface LoopingRouteConfig {
  */
 export interface FixedRouteConfig {
   schedule: Array<{
-    time:  string;            // "HH:MM" (24h)
-    espId: string;            // matches esp32_scanners.esp_id
+    time:      string;            // "HH:MM" (24h)
+    scannerId: string;            // matches Scanner.scanner_id
   }>;
 }
 
@@ -201,7 +204,7 @@ export interface PatrolRoute {
 export interface RouteAssignment {
   id: string;
   route_id: string;
-  ble_mac: string;             // uppercased MAC
+  tag_mac: string;             // uppercased Bluetooth MAC (DB column still ble_mac)
   days_of_week: string;        // 7 chars of 0/1, Mon-first. "1111111" = every day.
   created_at: string;
 }
@@ -211,7 +214,7 @@ export type CheckpointStatus = "completed" | "missed" | "late" | "upcoming";
 
 export interface ComplianceSlot {
   expectedTime: string;        // "HH:MM"
-  espId:        string;
+  scannerId:    string;
   location:     string;
   status:       CheckpointStatus;
   actualTime?:  string;        // "HH:MM:SS" if completed/late
@@ -220,9 +223,9 @@ export interface ComplianceSlot {
 
 /** Per-guard daily compliance summary. */
 export interface ComplianceSummary {
-  bleMac:        string;
+  tagMac:        string;
   guardName?:    string;
-  bleName?:      string;
+  tagName?:      string;
   routeId:       string;
   routeName:     string;
   totalExpected: number;       // expected checkpoints so far (up to "now")

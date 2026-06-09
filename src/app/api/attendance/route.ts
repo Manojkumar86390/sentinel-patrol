@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // /api/attendance
-//   GET – returns the 30-day attendance grid for all registered BLE devices.
+//   GET – returns the 30-day attendance grid for all registered Bluetooth tags.
 //
 // Response shape (designed for easy rendering on the client):
 //   {
@@ -31,12 +31,12 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-  const [bleDevices, events] = await Promise.all([
-    db.bleDevices.all(),
+  const [tags, events] = await Promise.all([
+    db.tags.all(),
     db.events.all(),
   ]);
 
-  const { dates, guards } = buildAttendance(bleDevices, events, 30);
+  const { dates, guards } = buildAttendance(tags, events, 30);
 
   // Serialize the per-guard cells (Map -> array) for transport.
   const serialized = guards.map((g) => ({

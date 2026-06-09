@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLive } from "@/hooks/use-live";
-import type { PatrolEvent, EventStatus, BleDevice } from "@/types";
+import type { PatrolEvent, EventStatus, Tag } from "@/types";
 import { FiSearch, FiDownload, FiFilter, FiRefreshCw, FiUser, FiX } from "react-icons/fi";
 
 const STATUS_FILTERS: Array<EventStatus | "all"> = ["all", "Verified", "Late", "Missed"];
@@ -21,10 +21,10 @@ const STATUS_VARIANT = {
 export default function LogsPage() {
   const { data: events, refresh } = useLive<PatrolEvent[]>("/api/patrol-events?limit=1000",
     { select: (r) => (r as { items: PatrolEvent[] }).items, intervalMs: 5000 });
-  // Also pull BLE devices so we can show a photo + guard name per row.
+  // Also pull Bluetooth tags so we can show a photo + guard name per row.
   // Refreshes slowly — registrations are infrequent.
-  const { data: devices } = useLive<BleDevice[]>("/api/ble-devices",
-    { select: (r) => (r as { items: BleDevice[] }).items, intervalMs: 30000 });
+  const { data: devices } = useLive<Tag[]>("/api/ble-devices",
+    { select: (r) => (r as { items: Tag[] }).items, intervalMs: 30000 });
 
   const [query,  setQuery]  = useState("");
   const [status, setStatus] = useState<EventStatus | "all">("all");
@@ -38,7 +38,7 @@ export default function LogsPage() {
   // Quick lookup of photo + guard name by MAC. Built once per render so it's
   // free for the table rendering loop below.
   const deviceByMac = useMemo(() => {
-    const m = new Map<string, BleDevice>();
+    const m = new Map<string, Tag>();
     for (const d of devices ?? []) {
       m.set(d.mac_address.toUpperCase(), d);
     }
@@ -57,7 +57,7 @@ export default function LogsPage() {
         (e.guardName ?? "").toLowerCase().includes(q) ||
         e.bluetoothMac.toLowerCase().includes(q) ||
         e.location.toLowerCase().includes(q) ||
-        e.espId.toLowerCase().includes(q)
+        e.scannerId.toLowerCase().includes(q)
       );
     });
   }, [all, query, status]);
@@ -175,7 +175,7 @@ export default function LogsPage() {
                           )}
                         </td>
                         <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.bluetoothMac}</td>
-                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.espId}</td>
+                        <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.scannerId}</td>
                         <td className="py-3 px-5 text-white/90">{e.location}</td>
                         <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.date}</td>
                         <td className="py-3 px-5 mono text-xs text-[var(--color-muted)]">{e.time}</td>

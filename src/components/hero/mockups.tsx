@@ -138,14 +138,14 @@ export function HardwareMockup() {
 
         <div className="relative grid place-items-center h-40 w-40 rounded-3xl bg-gradient-to-br from-[#1a1f2e] to-[#0a0d14] ring-1 ring-white/10 shadow-2xl">
           <FiCpu className="h-16 w-16 text-[var(--color-primary)]" />
-          <p className="absolute bottom-3 mono text-[10px] text-white/60">ESP32</p>
+          <p className="absolute bottom-3 mono text-[10px] text-white/60">SCANNER</p>
           <div className="absolute top-2 right-2">
             <PulseDot className="text-[var(--color-success)]" />
           </div>
         </div>
 
         <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 mono text-[10px] text-white/40 text-center whitespace-nowrap">
-          <span className="text-[var(--color-primary)]">BLE</span> scan · live
+          <span className="text-[var(--color-primary)]">Bluetooth</span> scan · live
         </div>
       </div>
     </div>

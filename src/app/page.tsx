@@ -28,9 +28,9 @@ import {
 } from "react-icons/fi";
 
 const FEATURES = [
-  { icon: FiRadio,    title: "Live BLE Detection",   body: "ESP32 nodes continuously scan for guard wristbands and stream verified scans to the dashboard." },
+  { icon: FiRadio,    title: "Live Bluetooth Detection",   body: "Scanner nodes continuously scan for guard wristbands and stream verified scans to the dashboard." },
   { icon: FiActivity, title: "Real-time Logs",       body: "Every checkpoint visit is timestamped, RSSI-tagged, and color-coded — verified, late, or missed." },
-  { icon: FiCpu,      title: "Device Health",        body: "Heartbeat monitoring per ESP32 with online/offline pulses and last-seen timestamps." },
+  { icon: FiCpu,      title: "Device Health",        body: "Heartbeat monitoring per Scanner with online/offline pulses and last-seen timestamps." },
   { icon: FiFileText, title: "Reports & Exports",    body: "Daily and weekly reports exportable to CSV / Excel — filter by guard, date range, or checkpoint." },
   { icon: FiShield,   title: "Role-based Access",    body: "Admin authentication and session management for security supervisors and management." },
   { icon: FiZap,      title: "Sub-second Refresh",   body: "Auto-polling every 10–15 seconds; ready to upgrade to WebSockets for full push delivery." },
@@ -83,10 +83,10 @@ export default function LandingPage() {
       {/* Hardware section (reversed) */}
       <SectionWithMockup
         reverseLayout
-        title={<>ESP32 nodes,<br />invisible by design.</>}
+        title={<>Scanner nodes,<br />invisible by design.</>}
         description={
           <>
-            One small device per checkpoint. WiFi-connected, BLE-scanning, and silently watching for
+            One small device per checkpoint. WiFi-connected, Bluetooth-scanning, and silently watching for
             guard wristbands. Sub-100ms detection, RSSI-tagged for proximity verification.
             Flash the firmware once and forget it.
           </>
@@ -104,7 +104,7 @@ export default function LandingPage() {
             </h2>
             <p className="mt-4 text-base text-[var(--color-muted)] max-w-2xl mx-auto leading-relaxed">
               A college project from IIITDM Kurnool that uses small wireless tags
-              and ESP32 microcontrollers to verify whether security guards are
+              and Scanner microcontrollers to verify whether security guards are
               actually patrolling the spots they&rsquo;re supposed to.
             </p>
           </div>
@@ -127,11 +127,11 @@ export default function LandingPage() {
 
               <ol className="space-y-3 ml-12">
                 {[
-                  ["1", "Each guard carries a small BLE wristband (HC-05). It continuously broadcasts its MAC address over Bluetooth Low Energy."],
-                  ["2", "An ESP32 is mounted at each checkpoint (Main Gate, Hostel, ECE Block, Sports). It runs a custom firmware that scans for nearby BLE devices every few seconds."],
-                  ["3", "When a guard&rsquo;s tag is detected, the ESP32 immediately sends an HTTP POST to the website with the tag&rsquo;s MAC and the scanner&rsquo;s own ID."],
+                  ["1", "Each guard carries a small Bluetooth wristband (HC-05). It continuously broadcasts its MAC address over Bluetooth."],
+                  ["2", "A Scanner is mounted at each checkpoint (Main Gate, Hostel, ECE Block, Sports). It runs a custom firmware that scans for nearby Bluetooth tags every few seconds."],
+                  ["3", "When a guard&rsquo;s tag is detected, the Scanner immediately sends an HTTP POST to the website with the tag&rsquo;s MAC and the scanner&rsquo;s own ID."],
                   ["4", "The server matches the scanner ID against its registered location and saves a Verified patrol event. The dashboard updates within seconds."],
-                  ["5", "If something goes wrong, the guard presses one of 4 emergency buttons wired to the ESP32 (Accident / Fire / Bleeding / Fight). An instant Telegram alert reaches the supervisor group, and the alert appears on the dashboard for acknowledgment."],
+                  ["5", "If something goes wrong, the guard presses one of 4 emergency buttons wired to the Scanner (Accident / Fire / Bleeding / Fight). An instant Telegram alert reaches the supervisor group, and the alert appears on the dashboard for acknowledgment."],
                 ].map(([n, txt]) => (
                   <li key={n} className="flex gap-3 text-sm text-[var(--color-muted)] leading-relaxed">
                     <span className="grid h-5 w-5 place-items-center rounded-full bg-white/[0.04] text-[10px] mono text-white shrink-0 mt-0.5">
@@ -159,10 +159,10 @@ export default function LandingPage() {
 
               <div className="grid sm:grid-cols-2 gap-3 ml-0 md:ml-12">
                 {[
-                  { name: "Patrol events",     desc: "Every BLE scan with timestamp, MAC, scanner, location, status" },
+                  { name: "Patrol events",     desc: "Every Bluetooth scan with timestamp, MAC, scanner, location, status" },
                   { name: "Emergency alerts",  desc: "Every button press with type, location, Telegram delivery status" },
-                  { name: "BLE devices",       desc: "Registered guard tags — MAC + name + optional guard name" },
-                  { name: "ESP32 scanners",    desc: "Registered scanners — ESP ID + checkpoint location" },
+                  { name: "Bluetooth tags",       desc: "Registered guard tags — MAC + name + optional guard name" },
+                  { name: "Scanners",    desc: "Registered scanners — Scanner ID + checkpoint location" },
                   { name: "Attendance matrix", desc: "Computed live — 30-day rolling day/night shift presence" },
                   { name: "Config",            desc: "Thresholds for offline detection, polling intervals, session timeout" },
                 ].map((t) => (
@@ -190,7 +190,7 @@ export default function LandingPage() {
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 ml-0 md:ml-12">
                 {[
-                  { label: "Hardware",      value: "ESP32 Dev Module, HC-05 BLE, push buttons" },
+                  { label: "Hardware",      value: "Scanner Dev Module, HC-05 Bluetooth, push buttons" },
                   { label: "Firmware",      value: "Arduino + FreeRTOS dual-core" },
                   { label: "Web framework", value: "Next.js 16, React 19, TypeScript" },
                   { label: "Styling",       value: "Tailwind v4, custom dark theme" },
@@ -279,7 +279,7 @@ export default function LandingPage() {
 
               <ul className="relative p-6 space-y-4">
                 {[
-                  { label: "Verification",   detail: "BLE wristband + ESP32 scanner — physical presence cannot be faked",  icon: FiShield  },
+                  { label: "Verification",   detail: "Bluetooth wristband + Scanner — physical presence cannot be faked",  icon: FiShield  },
                   { label: "Real-time view",  detail: "Live dashboard updates in under a second from every checkpoint",     icon: FiActivity },
                   { label: "Emergency reach", detail: "4 hardware buttons trigger instant Telegram alerts to supervisors",  icon: FiZap     },
                   { label: "Attendance",      detail: "Day/night shift attendance computed live, exportable as CSV",        icon: FiCheckSquare },
@@ -307,7 +307,7 @@ export default function LandingPage() {
             Ready to deploy?
           </h2>
           <p className="mt-3 text-[var(--color-muted)]">
-            Spin up the dashboard now — the ESP32 firmware repo is ready to flash.
+            Spin up the dashboard now — the Scanner firmware repo is ready to flash.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
