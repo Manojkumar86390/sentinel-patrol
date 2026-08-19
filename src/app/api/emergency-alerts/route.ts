@@ -77,7 +77,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { type?: string; scannerId?: string; switchId?: string };
+  // Accept BOTH `espId` (legacy firmware payload) and `scannerId` (newer payload).
+  // Keeps existing flashed boards working without a reflash.
+  let body: { type?: string; scannerId?: string; espId?: string; switchId?: string };
   try {
     body = await req.json();
   } catch {
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
   }
 
   const rawType  = String(body.type ?? "").toLowerCase();
-  const scannerId    = (body.scannerId    ?? "").trim() || undefined;
+  const scannerId    = (body.scannerId ?? body.espId ?? "").trim() || undefined;
   const switchId = (body.switchId ?? "").trim() || undefined;
 
   if (!scannerId && !switchId) {

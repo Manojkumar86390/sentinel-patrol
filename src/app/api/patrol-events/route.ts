@@ -66,7 +66,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bad device token" }, { status: 401 });
   }
 
-  let body: { name?: string; bluetoothMac?: string; scannerId?: string; rssi?: number };
+  // Accept BOTH `espId` (legacy firmware payload) and `scannerId` (newer payload).
+  // This keeps existing flashed boards working without a reflash.
+  let body: { name?: string; bluetoothMac?: string; scannerId?: string; espId?: string; rssi?: number };
   try {
     body = await req.json();
   } catch {
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
 
   const rawName = (body.name ?? "").trim() || "NO_DEVICE";
   const macLow  = (body.bluetoothMac ?? "").trim().toLowerCase() || "n/a";
-  const scannerId   = (body.scannerId ?? "SCANNER-UNKNOWN").trim();
+  const scannerId   = (body.scannerId ?? body.espId ?? "SCANNER-UNKNOWN").trim();
   // RSSI is a signed integer in dBm. Negative for real readings; 0 = unknown.
   // We only store it when present and non-zero (preserves backward compat with
   // older firmware versions that don't send it at all).
